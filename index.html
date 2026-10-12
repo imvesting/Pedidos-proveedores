@@ -1217,6 +1217,11 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     if (appStarted || authStarting) return;
     authStarting = true;
     try {
+      if (!supabaseClient) throw new Error("Supabase no está inicializado");
+      var authResult = await supabaseClient.auth.getUser();
+      if (authResult.error) throw authResult.error;
+      if (!authResult.data || !authResult.data.user) throw new Error("No hay una sesión autenticada");
+      currentAuthUserId = authResult.data.user.id;
       var localData = loadLocalData();
       data.suppliers = localData.suppliers;
       data.orders = localData.orders;
@@ -1269,7 +1274,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
             cloudRefreshTimer = null;
           }
           data = { suppliers: [], orders: {}, history: [], deletedOrderIds: [] };
-          try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+          try { if (currentAuthUserId) localStorage.removeItem(getUserStorageKey()); } catch (e) {}
+          currentAuthUserId = null;
           showLogin();
         }
       });
@@ -1313,7 +1319,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
    */
   var AUTH_USERS = [
     { username: "Mayra", email: "Darwincovis07@gmail.com" },
-    { username: "Darwin", email: "darwincovis7@gmail.com" }
+    { username: "Darwin", email: "darwincovis7@gmail.com" },
+    { username: "Ferrecastillo", email: "geraldsmith368@gmail.com" }
   ];
 
   // ===== ADMINISTRACIÓN SEGURA =====
@@ -1352,10 +1359,12 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     return null;
   }
 
-  var CLOUD_TABLE = "app_state";
-  var CLOUD_ROW_ID = 1;
-
+  // Esta versión guarda cada cuenta en su propia fila protegida por RLS.
+  // La tabla compartida app_state se conserva intacta como respaldo.
+  var CLOUD_TABLE = "app_user_state";
   var STORAGE_KEY = "pedidos_proveedores_v2";
+  var supabaseClient = null;
+  var currentAuthUserId = null;
   var OLD_STORAGE_KEY = "pedidos_proveedores_v1";
   var supabaseClient = null;
   var cloudReady = false;
@@ -1420,9 +1429,14 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     }
   }
 
+  function getUserStorageKey() {
+    return currentAuthUserId ? STORAGE_KEY + "_" + currentAuthUserId : STORAGE_KEY + "_no_user";
+  }
+
   function loadLocalData() {
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!currentAuthUserId) return { suppliers: [], orders: {}, history: [], deletedOrderIds: [] };
+      var raw = localStorage.getItem(getUserStorageKey());
       if (raw) {
         var parsed = JSON.parse(raw);
         return {
@@ -1432,8 +1446,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
           deletedOrderIds: Array.isArray(parsed.deletedOrderIds) ? parsed.deletedOrderIds.map(String) : []
         };
       }
-      var migrated = migrateFromV1();
-      if (migrated) return migrated;
+      // No importar el almacenamiento antiguo global: podría pertenecer a otra cuenta.
+      // Los datos históricos se migrarán solo después de verificar su propietario.
     } catch (e) {
       console.error("No se pudo leer el almacenamiento local:", e);
     }
@@ -1446,7 +1460,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   function saveLocalOrders() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      if (!currentAuthUserId) return;
+      localStorage.setItem(getUserStorageKey(), JSON.stringify({
         suppliers: data.suppliers,
         orders: data.orders,
         history: data.history,
@@ -1485,9 +1500,9 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   }
 
   async function cloudLoad() {
-    if (!cloudReady || !supabaseClient) return null;
+    if (!cloudReady || !supabaseClient || !currentAuthUserId) return null;
     var result = await withTimeout(
-      supabaseClient.from(CLOUD_TABLE).select("data,updated_at").eq("id", CLOUD_ROW_ID).maybeSingle(),
+      supabaseClient.from(CLOUD_TABLE).select("data,updated_at").eq("user_id", currentAuthUserId).maybeSingle(),
       CLOUD_TIMEOUT_MS,
       "Supabase tardó demasiado en responder"
     );
@@ -1504,13 +1519,14 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     cloudBusy = true;
     try {
       rebuildPendingOrders();
+      if (!currentAuthUserId) throw new Error("No se identificó la cuenta activa");
       var payload = {
-        id: CLOUD_ROW_ID,
+        user_id: currentAuthUserId,
         data: { suppliers: data.suppliers, orders: data.orders, history: data.history, pendingOrders: data.pendingOrders || {}, deletedOrderIds: data.deletedOrderIds || [] },
         updated_at: new Date().toISOString()
       };
       var result = await withTimeout(
-        supabaseClient.from(CLOUD_TABLE).upsert(payload, { onConflict: "id" }),
+        supabaseClient.from(CLOUD_TABLE).upsert(payload, { onConflict: "user_id" }),
         CLOUD_TIMEOUT_MS,
         "No se pudo guardar: tiempo de espera agotado"
       );
@@ -1537,15 +1553,15 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   }
 
   function startRealtime() {
-    if (!supabaseClient || realtimeChannel) return;
+    if (!supabaseClient || !currentAuthUserId || realtimeChannel) return;
     try {
       realtimeChannel = supabaseClient
-        .channel("app-state-sync")
+        .channel("app-user-state-sync-" + currentAuthUserId)
         .on("postgres_changes", {
           event: "*",
           schema: "public",
           table: CLOUD_TABLE,
-          filter: "id=eq." + CLOUD_ROW_ID
+          filter: "user_id=eq." + currentAuthUserId
         }, function(payload) {
           var remote = payload && payload.new && payload.new.data;
           if (!remote || !Array.isArray(remote.suppliers)) return;
@@ -1584,6 +1600,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
     try {
       if (!supabaseClient) throw new Error("Supabase no está inicializado");
+      if (!currentAuthUserId) throw new Error("No se identificó la cuenta activa");
       cloudReady = true;
 
       var localData = loadLocalData();
