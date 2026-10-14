@@ -2288,7 +2288,17 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if (wasDrag) {
         active.item.classList.remove("longpress-dragging");
         if (moved) {
-          var ids = Array.from(list.querySelectorAll(config.rowSelector)).map(function(row){ return row.getAttribute(config.idAttribute); });
+          // Leer cada elemento visible una sola vez y descartar IDs repetidos.
+          // Esto evita que un arrastre registre el mismo producto más de una vez.
+          var seenIds = new Set();
+          var ids = Array.from(list.children).map(function(item) {
+            var row = item.querySelector(config.rowSelector);
+            return row ? row.getAttribute(config.idAttribute) : null;
+          }).filter(function(id) {
+            if (!id || seenIds.has(String(id))) return false;
+            seenIds.add(String(id));
+            return true;
+          });
           config.commit(ids);
           saveData();
           config.render();
