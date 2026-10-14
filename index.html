@@ -107,6 +107,15 @@
     .header-sync{max-width:104px;font-size:.54rem;padding:4px 6px;}
     .header-sync #cloudStatus{font-size:.54rem!important;}
   }
+  .product-tools-row{display:flex;align-items:stretch;gap:8px;margin:12px 0 14px;width:100%;min-width:0;}
+  .product-search-wrap{flex:1 1 0;min-width:0;}
+  .product-search-wrap .search-input{width:100%;min-width:0;height:100%;min-height:44px;}
+  .product-import-btn{flex:0 0 auto;max-width:48%;justify-content:center;white-space:normal;text-align:center;line-height:1.2;padding:9px 10px;font-size:.75rem;}
+  .header-user-actions{display:flex;align-items:center;gap:7px;flex-shrink:0;min-width:0;}
+  .header-username{display:none;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:.72rem;font-weight:700;}
+  .header-logout{display:none;align-items:center;justify-content:center;min-height:32px;padding:6px 9px;border:1px solid rgba(255,255,255,.24);border-radius:10px;background:rgba(255,255,255,.1);color:#fff;font:700 .68rem Inter,sans-serif;cursor:pointer;white-space:nowrap;}
+  .header-logout.visible,.header-username.visible{display:flex;}
+  @media(max-width:380px){.header-username{max-width:65px;font-size:.65rem}.header-logout{padding:5px 7px;font-size:.62rem}.product-tools-row{gap:6px}.product-import-btn{max-width:45%;font-size:.68rem;padding:8px 7px}}
   .app-bottom { position:fixed; left:50%; bottom:0; transform:translateX(-50%); width:min(560px,100%); z-index:40; padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)); background:rgba(16,27,58,.98); border-top:1px solid rgba(255,255,255,.08); display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
   .nav-btn { border:0; background:transparent; color:#AAB7D2; border-radius:14px; min-height:50px; font-family:inherit; font-weight:700; font-size:.72rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; }
   .nav-btn .nav-icon { font-size:1.15rem; line-height:1; }
@@ -1025,6 +1034,10 @@ main {
         <span class="brand-subtitle" id="pageSubtitle">Tu asistente de pedidos</span>
       </div>
     </div>
+    <div class="header-user-actions">
+      <span class="header-username" id="headerUsername"></span>
+      <button type="button" class="header-logout" id="headerLogoutBtn">🚪 Salir</button>
+    </div>
     <div class="header-sync" id="headerSync" aria-live="polite">
       <span class="sync-dot" id="syncDot"></span>
       <span id="cloudStatus">Conectando…</span>
@@ -1068,14 +1081,14 @@ main {
         <input class="text-input" id="newProductInput" type="text" placeholder="Agregar producto de este proveedor…" autocomplete="off">
         <button type="button" class="btn-secondary" id="addProductBtn">Agregar</button>
       </div>
-      <div class="quick-actions" style="margin:12px 0;">
-        <button type="button" class="quick-action" id="importProductsBtn"><span>📥</span> Importar productos desde Excel</button>
+      <div class="product-tools-row">
+        <div class="product-search-wrap">
+          <input class="search-input" id="productSearchInput" type="search"
+                 placeholder="🔎 Buscar producto…" autocomplete="off">
+        </div>
+        <button type="button" class="quick-action product-import-btn" id="importProductsBtn"><span>📥</span> Importar productos</button>
       </div>
       <input type="file" id="productExcelFileInput" accept=".xlsx,.xls" style="display:none">
-      <div class="field" style="margin-bottom:14px;">
-        <input class="search-input" id="productSearchInput" type="search"
-               placeholder="🔎 Buscar producto…" autocomplete="off">
-      </div>
       <div class="order-move-hint">💡 Para cambiar el orden, abre ⋯ en un producto y elige moverlo arriba o abajo.</div>
       <ul class="list" id="productList"></ul>
       <div id="productsEmpty" class="empty-state" style="display:none">
@@ -1197,7 +1210,7 @@ main {
         </ul>
       </div>
       <button type="button" class="logout-btn" id="adminUsersBtn" style="display:none">👥 Administrar usuarios</button>
-      <button type="button" class="logout-btn" id="logoutBtn">🚪 Cerrar sesión</button>
+      <button type="button" class="logout-btn" id="logoutBtn" style="display:none">🚪 Cerrar sesión</button>
       <div class="menu-version"><strong>v1.0</strong><small>Versión de la aplicación</small></div>
       <div class="menu-footer"><span class="code-mark">&lt;/&gt;</span><b>by. DarwinC</b></div>
     </aside>
@@ -2179,6 +2192,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       });
 
       if (result.error) throw result.error;
+      setHeaderUser(username);
       document.getElementById("loginPassword").value = "";
       document.getElementById("loginUsername").value = "";
     } catch (err) {
@@ -2193,16 +2207,30 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     }
   });
 
-  document.getElementById("logoutBtn").addEventListener("click", async function(){
+  async function performLogout() {
     closeMenu();
     if (!supabaseClient) return;
     try {
-      await supabaseClient.auth.signOut();
+      var result = await supabaseClient.auth.signOut();
+      if (result && result.error) throw result.error;
+      setHeaderUser("");
     } catch (err) {
       console.error("Error cerrando sesión:", err);
       showAlert("No se pudo cerrar la sesión. Intenta nuevamente.");
     }
-  });
+  }
+  document.getElementById("logoutBtn").addEventListener("click", performLogout);
+  document.getElementById("headerLogoutBtn").addEventListener("click", performLogout);
+
+  function setHeaderUser(username) {
+    var label = document.getElementById("headerUsername");
+    var button = document.getElementById("headerLogoutBtn");
+    var value = String(username || "").trim();
+    label.textContent = value;
+    label.title = value;
+    label.classList.toggle("visible", !!value);
+    button.classList.toggle("visible", !!value);
+  }
 
   function openMenu(){ document.getElementById("menuOverlay").classList.add("active"); }
   function closeMenu(){ document.getElementById("menuOverlay").classList.remove("active"); }
