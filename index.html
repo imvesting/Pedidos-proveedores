@@ -1012,6 +1012,61 @@ main {
     .product-row{column-gap:6px;padding:11px 8px 11px 10px;}
   }
 
+
+  /* Ajuste final del encabezado: sincronización discreta arriba a la derecha;
+     usuario y botón Salir en una misma fila debajo, en escritorio y móvil. */
+  .header-user-actions{
+    display:flex!important;flex:0 0 auto;flex-direction:column!important;
+    align-items:flex-end!important;justify-content:flex-start;gap:3px!important;
+    min-width:0;margin-left:auto;
+  }
+  .header-sync{
+    align-self:flex-end!important;display:flex;align-items:center;gap:3px!important;
+    width:auto!important;max-width:94px!important;margin:0!important;
+    padding:1px 4px!important;border:0!important;border-radius:5px!important;
+    background:rgba(255,255,255,.06)!important;box-shadow:none!important;
+    font-size:.43rem!important;line-height:1!important;font-weight:600!important;
+    white-space:nowrap!important;
+  }
+  .header-sync #cloudStatus{
+    display:block!important;max-width:78px;overflow:hidden!important;
+    text-overflow:ellipsis!important;white-space:nowrap!important;
+    margin:0!important;padding:0!important;font-size:.43rem!important;line-height:1!important;
+  }
+  .header-sync .sync-dot{
+    width:4px!important;height:4px!important;min-width:4px!important;
+    box-shadow:none!important;
+  }
+  .header-sync.online .sync-dot,.header-sync.offline .sync-dot{box-shadow:none!important;}
+  .header-user-row{
+    display:flex;flex-direction:row;align-items:center;justify-content:flex-end;
+    gap:5px;min-width:0;
+  }
+  .header-username.visible{
+    display:block!important;max-width:100px;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;font-size:.7rem!important;line-height:1.1;font-weight:800;
+  }
+  .header-logout.visible{
+    display:flex!important;align-items:center;justify-content:center;
+    min-height:22px;padding:3px 6px;font-size:.54rem!important;line-height:1;
+  }
+  @media(max-width:560px){
+    header.topbar{gap:6px!important;padding-left:10px!important;padding-right:10px!important;}
+    .brand-left{flex:1 1 auto;min-width:0;gap:6px;}
+    .header-user-actions{gap:3px!important;min-width:0;align-self:center!important;}
+    .header-sync{max-width:82px!important;}
+    .header-sync #cloudStatus{max-width:68px;}
+    .header-username.visible{max-width:65px;font-size:.64rem!important;}
+    .header-logout.visible{min-height:21px;padding:3px 5px;font-size:.51rem!important;}
+  }
+  @media(max-width:380px){
+    .header-user-row{gap:3px;}
+    .header-username.visible{max-width:52px;font-size:.6rem!important;}
+    .header-logout.visible{padding:3px 4px;font-size:.48rem!important;}
+    .header-sync{max-width:72px!important;}
+    .header-sync #cloudStatus{max-width:58px;}
+  }
+
 </style>
 </head>
 <!-- V25: acceso multiusuario con traducción interna usuario -> correo de Supabase; no se muestran usuarios registrados. -->
@@ -1049,13 +1104,15 @@ main {
         <span class="brand-subtitle" id="pageSubtitle">Tu asistente de pedidos</span>
       </div>
     </div>
-    <div class="header-sync" id="headerSync" aria-live="polite">
-      <span class="sync-dot" id="syncDot"></span>
-      <span id="cloudStatus">Conectando…</span>
-    </div>
     <div class="header-user-actions">
-      <span class="header-username" id="headerUsername"></span>
-      <button type="button" class="header-logout" id="headerLogoutBtn">🚪 Salir</button>
+      <div class="header-sync" id="headerSync" aria-live="polite">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="cloudStatus">Conectando…</span>
+      </div>
+      <div class="header-user-row">
+        <span class="header-username" id="headerUsername"></span>
+        <button type="button" class="header-logout" id="headerLogoutBtn">🚪 Salir</button>
+      </div>
     </div>
   </header>
 
