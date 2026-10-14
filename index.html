@@ -1105,9 +1105,9 @@ main {
     }
     header.topbar { touch-action: pan-y; }
     .view-toolbar .history-filter {
-      min-height: 42px;
-      padding: 10px 15px;
-      font-size: .9rem;
+      min-height: 38px;
+      padding: 8px 12px;
+      font-size: .84rem;
     }
     #historyActions .btn-secondary,
     #historyActions .btn-danger {
@@ -1118,15 +1118,15 @@ main {
   }
   @media (min-width: 701px) {
     .view-toolbar .history-filter {
-      min-height: 44px;
-      padding: 11px 17px;
-      font-size: .94rem;
+      min-height: 40px;
+      padding: 9px 14px;
+      font-size: .88rem;
     }
     #historyActions .btn-secondary,
     #historyActions .btn-danger {
-      min-height: 29px;
-      padding: 5px 9px;
-      font-size: .7rem;
+      min-height: 34px;
+      padding: 7px 11px;
+      font-size: .76rem;
     }
   }
 
@@ -2478,17 +2478,21 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       var pt = getPoint(e); startY = pt.y; moved = false;
       active = { item:item, pointerId:e.pointerId, x:pt.x, y:pt.y };
       pressTimer = setTimeout(function() {
-        if (!active) return;
+        // No iniciar el arrastre si el dedo ya comenzó a desplazarse por la página.
+        if (!active || active.cancelled) return;
         active.dragging = true;
         active.item.classList.add("longpress-dragging");
         if (navigator.vibrate) { try { navigator.vibrate(25); } catch(_) {} }
-      }, 280);
+      }, 450);
     }
     function move(e) {
       if (!active) return;
       var pt = getPoint(e);
       if (!active.dragging) {
-        if (Math.abs(pt.y - startY) > 9 || Math.abs(pt.x - active.x) > 18) clearPress();
+        if (Math.abs(pt.y - startY) > 8 || Math.abs(pt.x - active.x) > 18) {
+          active.cancelled = true;
+          clearPress();
+        }
         return;
       }
       if (e.cancelable) e.preventDefault();
