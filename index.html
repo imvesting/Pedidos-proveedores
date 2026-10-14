@@ -1068,6 +1068,10 @@ main {
         <input class="text-input" id="newProductInput" type="text" placeholder="Agregar producto de este proveedor…" autocomplete="off">
         <button type="button" class="btn-secondary" id="addProductBtn">Agregar</button>
       </div>
+      <div class="quick-actions" style="margin:12px 0;">
+        <button type="button" class="quick-action" id="importProductsBtn"><span>📥</span> Importar productos desde Excel</button>
+      </div>
+      <input type="file" id="productExcelFileInput" accept=".xlsx,.xls" style="display:none">
       <div class="field" style="margin-bottom:14px;">
         <input class="search-input" id="productSearchInput" type="search"
                placeholder="🔎 Buscar producto…" autocomplete="off">
@@ -3171,6 +3175,113 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
     reader.readAsArrayBuffer(file);
   });
+
+  // Importar productos únicamente al proveedor que está abierto.
+  document.getElementById("importProductsBtn").addEventListener("click", function() {
+    var supplier = getActiveSupplier();
+    if (!supplier) {
+      showAlert("Abre un proveedor antes de importar sus productos.");
+      return;
+    }
+    document.getElementById("productExcelFileInput").click();
+  });
+
+  document.getElementById("productExcelFileInput").addEventListener("change", function(e) {
+    var file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (!window.XLSX) {
+      showAlert("No se pudo cargar el lector de Excel. Revisa tu conexión a Internet e intenta de nuevo.");
+      return;
+    }
+
+    var reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        var workbook = XLSX.read(evt.target.result, { type: "array" });
+        var sheetName = workbook.SheetNames[0];
+        if (!sheetName) {
+          showAlert("El archivo Excel no contiene ninguna hoja.");
+          return;
+        }
+        var rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+          header: 1,
+          defval: "",
+          blankrows: true,
+          raw: false
+        });
+        importProductsForActiveSupplier(rows);
+      } catch (err) {
+        console.error("Error importando productos:", err);
+        showAlert("No se pudo leer ese archivo. Usa un Excel .xlsx o .xls con la unidad en la columna A y el nombre del producto en la columna B.");
+      }
+    };
+    reader.onerror = function() {
+      showAlert("No se pudo leer el archivo seleccionado.");
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  function importProductsForActiveSupplier(rows) {
+    var supplier = getActiveSupplier();
+    if (!supplier) {
+      showAlert("No hay un proveedor abierto. Vuelve a seleccionarlo e inténtalo de nuevo.");
+      return;
+    }
+
+    var entries = [];
+    (rows || []).forEach(function(row) {
+      row = Array.isArray(row) ? row : [];
+      if (rowIsEmpty(row)) return;
+      var unit = normalizeUnit(row[0]);
+      var name = cleanExcelCell(row[1]);
+      // Compatibilidad con listas antiguas de una sola columna.
+      if (!name && cleanExcelCell(row[0])) {
+        name = cleanExcelCell(row[0]);
+        unit = "";
+      }
+      if (name) entries.push({ name: name, unit: unit });
+    });
+
+    if (!entries.length) {
+      showAlert("El Excel no contiene productos. Usa la columna A para la unidad de medida (opcional) y la columna B para el nombre del producto.");
+      return;
+    }
+
+    var added = 0, skipped = 0, updatedUnits = 0;
+    entries.forEach(function(entry) {
+      var existing = supplier.products.find(function(p) {
+        return (p.name || "").trim().toLowerCase() === entry.name.toLowerCase();
+      });
+      if (existing) {
+        skipped++;
+        if (entry.unit && !existing.unit) {
+          existing.unit = entry.unit;
+          updatedUnits++;
+        }
+        return;
+      }
+      supplier.products.push({ id: uid(), name: entry.name, unit: entry.unit || "" });
+      added++;
+    });
+
+    if (added === 0 && updatedUnits === 0) {
+      showAlert("No se encontraron productos nuevos. Los productos que ya existían se dejaron sin duplicar.");
+      return;
+    }
+
+    if (saveData()) {
+      renderOrder();
+      showAlert(
+        "Importación completada para " + supplier.name + ".\\n\\n" +
+        "Productos agregados: " + added +
+        (skipped ? "\\nProductos ya existentes: " + skipped : "") +
+        (updatedUnits ? "\\nUnidades agregadas a productos existentes: " + updatedUnits : ""),
+        "Productos importados"
+      );
+    }
+  }
 
   function normalizeUnit(value) {
     var unit = cleanExcelCell(value).toLowerCase().replace(/\s+/g, " ");
