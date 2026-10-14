@@ -875,7 +875,13 @@ main {
 
 
   /* ===== Acceso privado · Estilo 2 ===== */
-  .auth-screen{position:relative;isolation:isolate;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:34px 20px;background:radial-gradient(circle at 18% 12%,rgba(25,116,255,.28),transparent 34%),radial-gradient(circle at 88% 82%,rgba(57,43,220,.34),transparent 38%),linear-gradient(145deg,#020B22 0%,#061B45 46%,#080B31 100%);}
+  .auth-screen{position:relative;isolation:isolate;min-height:100vh;min-height:100dvh;box-sizing:border-box;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:34px 20px;background:radial-gradient(circle at 18% 12%,rgba(25,116,255,.28),transparent 34%),radial-gradient(circle at 88% 82%,rgba(57,43,220,.34),transparent 38%),linear-gradient(145deg,#020B22 0%,#061B45 46%,#080B31 100%);}
+  html,body{min-height:100%;margin:0;}
+  body.app-locked{min-height:100vh;min-height:100dvh;overflow-x:hidden;}
+  body.app-locked .auth-screen{min-height:100vh;min-height:100dvh;}
+  body.app-locked #app{display:none!important;}
+  body.auth-checking .auth-screen{visibility:hidden;}
+  body.auth-checking{background:#020B22;}
   .auth-screen::before,.auth-screen::after{content:"";position:absolute;z-index:-1;border:1px solid rgba(48,116,255,.28);border-radius:50%;filter:blur(.2px);pointer-events:none;}
   .auth-screen::before{width:760px;height:420px;left:-270px;top:-250px;transform:rotate(-25deg);box-shadow:0 0 70px rgba(21,101,255,.14),inset 0 -1px 0 rgba(52,130,255,.22);}
   .auth-screen::after{width:820px;height:430px;right:-300px;bottom:-270px;transform:rotate(-17deg);box-shadow:0 0 90px rgba(45,72,255,.18),inset 0 1px 0 rgba(52,130,255,.24);}
@@ -1074,7 +1080,7 @@ main {
 </style>
 </head>
 <!-- V25: acceso multiusuario con traducción interna usuario -> correo de Supabase; no se muestran usuarios registrados. -->
-<body class="app-locked">
+<body class="app-locked auth-checking">
   <section class="auth-screen" id="authScreen" aria-label="Acceso privado">
     <div class="auth-card">
       <div class="auth-brand">
@@ -1382,7 +1388,10 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   }
 
   async function initAuth() {
+    // Mantener oculta la pantalla de acceso mientras se comprueba la sesión persistida.
+    document.body.classList.add("auth-checking");
     if (!isCloudConfigured()) {
+      document.body.classList.remove("auth-checking");
       showAuthError("La configuración de Supabase no está disponible.");
       return;
     }
@@ -1427,9 +1436,11 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         showLogin();
       }
       authInitialized = true;
+      document.body.classList.remove("auth-checking");
     } catch (e) {
       console.error("Error inicializando autenticación:", e);
       showAuthError("No se pudo conectar con el sistema de acceso. Revisa tu conexión a Internet.");
+      document.body.classList.remove("auth-checking");
     }
   }
 
