@@ -3274,10 +3274,10 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     if (saveData()) {
       renderOrder();
       showAlert(
-        "Importación completada para " + supplier.name + ".\\n\\n" +
+        "Importación completada para " + supplier.name + ".\n\n" +
         "Productos agregados: " + added +
-        (skipped ? "\\nProductos ya existentes: " + skipped : "") +
-        (updatedUnits ? "\\nUnidades agregadas a productos existentes: " + updatedUnits : ""),
+        (skipped ? "\nProductos ya existentes: " + skipped : "") +
+        (updatedUnits ? "\nUnidades agregadas a productos existentes: " + updatedUnits : ""),
         "Productos importados"
       );
     }
