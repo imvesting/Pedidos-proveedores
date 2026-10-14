@@ -954,7 +954,7 @@ main {
     user-select:none;
     position:relative;
   }
-  .product-name::before,.supplier-name::before{
+  .product-name::before{
     content:"⠿";
     display:inline-block;
     margin-right:9px;
@@ -965,7 +965,23 @@ main {
     vertical-align:middle;
     cursor:grab;
   }
-  .product-name:active,.supplier-name:active{cursor:grabbing;}
+  .supplier-drag-handle{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    align-self:stretch;
+    min-width:22px;
+    margin-left:-5px;
+    color:var(--accent);
+    font-size:1.2rem;
+    font-weight:800;
+    opacity:.85;
+    cursor:grab;
+    touch-action:none;
+    -webkit-user-select:none;
+    user-select:none;
+  }
+  .product-name:active,.supplier-name:active,.supplier-drag-handle:active{cursor:grabbing;}
   .product-row,.supplier-card{ -webkit-tap-highlight-color:transparent; }
   @media(max-width:420px){
     .product-name{font-size:1.08rem;line-height:1.38;}
@@ -2226,6 +2242,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       return (
         '<li>' +
         '<div class="supplier-card" data-supplier-id="' + supplier.id + '">' +
+          '<span class="supplier-drag-handle" aria-label="Arrastrar para reordenar">⠿</span>' +
           '<div class="supplier-badge" data-action="open">' + badgeContent + '</div>' +
           '<div class="supplier-info" data-action="open">' +
             '<p class="supplier-name">' + escapeHtml(supplier.name) + '</p>' +
@@ -2341,7 +2358,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   }
 
   setupLongPressReorder({
-    listId:"supplierList", nameSelector:".supplier-name", rowSelector:".supplier-card", idAttribute:"data-supplier-id",
+    listId:"supplierList", nameSelector:".supplier-name, .supplier-drag-handle", rowSelector:".supplier-card", idAttribute:"data-supplier-id",
     searchId:"supplierSearchInput", render:renderSuppliers,
     commit:function(ids){
       var byId = new Map(data.suppliers.map(function(x){ return [String(x.id),x]; }));
