@@ -998,7 +998,8 @@ main {
   /* Zona de agarre más amplia y visible para reordenar con el dedo. */
   .product-name,.supplier-name{
     cursor:grab;
-    touch-action:none;
+    /* Permitir desplazamiento vertical al tocar nombres en móvil. */
+     touch-action:pan-y;
     -webkit-user-select:none;
     user-select:none;
     position:relative;
