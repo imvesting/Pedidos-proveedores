@@ -33,13 +33,17 @@
   html { scroll-padding-top: env(safe-area-inset-top, 0px); }
   * { box-sizing: border-box; }
   html, body {
-    height: 100%;
+    min-height: 100%;
+    height: auto;
     margin: 0;
     background: var(--bg);
     color: var(--ink);
     font-family: 'Inter', -apple-system, system-ui, sans-serif;
     -webkit-tap-highlight-color: transparent;
+    overflow-x: clip;
   }
+  html { scroll-behavior: auto; }
+  body { overscroll-behavior-y: auto; }
 
   /* Estado de sincronización: no ocupa espacio en la pantalla principal.
      Se muestra en la barra inferior y en el menú lateral. */
@@ -893,7 +897,10 @@ main {
   }
   body.app-locked #app{display:none!important;}
   body.auth-checking .auth-screen{visibility:hidden;}
-  body.auth-checking{background:#020B22!important;}
+  body.auth-checking{background:var(--bg)!important;}
+  html:has(body.auth-checking), html:has(body.auth-checking) body{background:var(--bg)!important;}
+  body.app-locked:not(.auth-checking), body.app-locked:not(.auth-checking) .auth-screen{background:#020B22;}
+  body.app-locked:not(.auth-checking) .auth-screen{background:radial-gradient(circle at 18% 12%,rgba(25,116,255,.28),transparent 34%),radial-gradient(circle at 88% 82%,rgba(57,43,220,.34),transparent 38%),linear-gradient(145deg,#020B22 0%,#061B45 46%,#080B31 100%);}
   .auth-screen::before,.auth-screen::after{content:"";position:absolute;z-index:-1;border:1px solid rgba(48,116,255,.28);border-radius:50%;filter:blur(.2px);pointer-events:none;}
   .auth-screen::before{width:760px;height:420px;left:-270px;top:-250px;transform:rotate(-25deg);box-shadow:0 0 70px rgba(21,101,255,.14),inset 0 -1px 0 rgba(52,130,255,.22);}
   .auth-screen::after{width:820px;height:430px;right:-300px;bottom:-270px;transform:rotate(-17deg);box-shadow:0 0 90px rgba(45,72,255,.18),inset 0 1px 0 rgba(52,130,255,.24);}
@@ -1087,6 +1094,40 @@ main {
     .header-logout.visible{padding:3px 4px;font-size:.48rem!important;}
     .header-sync{max-width:72px!important;}
     .header-sync #cloudStatus{max-width:58px;}
+  }
+
+
+  /* Ajustes de interacción móvil y controles de Pedidos */
+  @media (max-width: 700px) {
+    html, body { -webkit-overflow-scrolling: touch; }
+    body, #app, main, .view, #view-history, #historyList {
+      touch-action: pan-y;
+    }
+    header.topbar { touch-action: pan-y; }
+    .view-toolbar .history-filter {
+      min-height: 42px;
+      padding: 10px 15px;
+      font-size: .9rem;
+    }
+    #historyActions .btn-secondary,
+    #historyActions .btn-danger {
+      min-height: 30px;
+      padding: 6px 9px;
+      font-size: .72rem;
+    }
+  }
+  @media (min-width: 701px) {
+    .view-toolbar .history-filter {
+      min-height: 44px;
+      padding: 11px 17px;
+      font-size: .94rem;
+    }
+    #historyActions .btn-secondary,
+    #historyActions .btn-danger {
+      min-height: 29px;
+      padding: 5px 9px;
+      font-size: .7rem;
+    }
   }
 
 </style>
