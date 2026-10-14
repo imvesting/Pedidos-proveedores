@@ -1274,6 +1274,14 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if (authResult.error) throw authResult.error;
       if (!authResult.data || !authResult.data.user) throw new Error("No hay una sesión autenticada");
       currentAuthUserId = authResult.data.user.id;
+      var authUser = authResult.data.user;
+      var headerUser = (authUser.user_metadata && (
+        authUser.user_metadata.username ||
+        authUser.user_metadata.user_name ||
+        authUser.user_metadata.nombre_usuario ||
+        authUser.user_metadata.full_name
+      )) || (authUser.email ? authUser.email.split("@")[0] : "");
+      setHeaderUser(headerUser);
       var localData = loadLocalData();
       data.suppliers = localData.suppliers;
       data.orders = localData.orders;
@@ -1328,6 +1336,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
           data = { suppliers: [], orders: {}, history: [], deletedOrderIds: [] };
           try { if (currentAuthUserId) localStorage.removeItem(getUserStorageKey()); } catch (e) {}
           currentAuthUserId = null;
+          setHeaderUser("");
           showLogin();
         }
       });
