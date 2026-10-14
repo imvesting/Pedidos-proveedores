@@ -2867,17 +2867,33 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     var input = wrap.querySelector("input");
     input.focus();
     input.select();
+    var committed = false;
     function commit() {
+      if (committed) return;
+      committed = true;
       var v = input.value.trim();
-      if (v) {
+      if (v && v !== product.name) {
         product.name = v;
         saveData();
       }
       renderOrder();
     }
-    input.addEventListener("blur", commit);
+    // No guardar al perder el foco: los repintados de la app podían cerrar
+    // el campo antes de que el usuario terminara de escribir.
     input.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") input.blur();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        committed = true;
+        renderOrder();
+      }
+    });
+    input.addEventListener("change", commit);
+    input.addEventListener("blur", function() {
+      // El cambio se confirma al terminar de editar, sin temporizador.
+      commit();
     });
   }
 
