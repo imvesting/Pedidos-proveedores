@@ -954,15 +954,16 @@ main {
     user-select:none;
     position:relative;
   }
-  .product-name::after,.supplier-name::after{
+  .product-name::before,.supplier-name::before{
     content:"⠿";
     display:inline-block;
-    margin-left:9px;
+    margin-right:9px;
     color:var(--accent);
     font-size:1.15em;
     font-weight:800;
-    opacity:.8;
+    opacity:.85;
     vertical-align:middle;
+    cursor:grab;
   }
   .product-name:active,.supplier-name:active{cursor:grabbing;}
   .product-row,.supplier-card{ -webkit-tap-highlight-color:transparent; }
