@@ -2076,10 +2076,14 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if (activeSupplier) {
         titleEl.textContent = activeSupplier.name || "Proveedor";
         subtitleEl.textContent = activeSupplier.phone ? ("WhatsApp · " + activeSupplier.phone) : "Proveedor · Prepara tu pedido";
+        markEl.innerHTML = activeSupplier.logo
+          ? '<img src="' + activeSupplier.logo + '" alt="">'
+          : '<img src="./logo-palermo.jpg" alt="Palermo">';
               }
     } else {
       titleEl.textContent = "Pedidos a Proveedores";
       subtitleEl.textContent = "Tu asistente de pedidos";
+      markEl.innerHTML = '<img src="./logo-palermo.jpg" alt="Palermo">';
           }
     updateBottomNav();
     render();
