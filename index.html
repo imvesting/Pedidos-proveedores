@@ -1151,6 +1151,8 @@ main {
     clip-path: circle(50%);
   }
 
+
+  .inventory-notice{padding:12px 14px;border:1px solid #D9E7DF;border-radius:14px;background:#F1F7F3;color:#245744;font-size:.82rem;margin:12px 0 16px}.inventory-actions,.inventory-footer{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}.inventory-table-wrap{width:100%;overflow-x:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff}.inventory-table{border-collapse:collapse;width:100%;min-width:780px;font-size:.78rem}.inventory-table th,.inventory-table td{padding:8px;border-bottom:1px solid #e8ece9;text-align:left}.inventory-table th{background:#F6F1E7;color:#144F41}.inventory-table input,.inventory-table select{width:100%;min-width:70px;padding:8px;border:1px solid #d7dfda;border-radius:8px;font:inherit}.inventory-table .inventory-shortage{font-weight:800;color:#1F6F5C}.inventory-table tr.inventory-duplicate td{background:#fff2e8}.inventory-table tr.inventory-review td{background:#fff8e8}.inventory-empty{text-align:center;padding:24px;color:#64748b}.inventory-delete{border:0;border-radius:8px;padding:7px 9px;background:#fff0ed;color:#a33;font-weight:700}.app-bottom{grid-template-columns:repeat(4,minmax(0,1fr))!important}
 </style>
 
 </head>
@@ -1306,6 +1308,19 @@ main {
       </div>
     </section>
 
+
+    <!-- VISTA: INVENTARIO -->
+    <section class="view" id="view-inventory">
+      <div class="hero-copy"><h2>Inventario</h2><p>Controla existencias y calcula cuánto falta para llegar a la cantidad objetivo.</p></div>
+      <div class="inventory-notice"><strong>Modo de pruebas</strong><br>Esta primera fase guarda el inventario solo en este dispositivo. No modifica la nube ni crea o envía pedidos.</div>
+      <div class="inventory-actions"><button type="button" class="btn-primary" id="inventoryImportBtn">📥 Importar Excel</button><button type="button" class="btn-secondary" id="inventoryAddBtn">＋ Agregar fila</button></div>
+      <input type="file" id="inventoryExcelInput" accept=".xlsx,.xls,.csv" style="display:none">
+      <div class="inventory-summary" id="inventorySummary">Columnas: Código, Nombre, Existencia, Cantidad objetivo.</div>
+      <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Código</th><th>Nombre</th><th>Existencia</th><th>Objetivo</th><th>Faltan</th><th>Vincular producto</th><th></th></tr></thead><tbody id="inventoryRows"><tr><td colspan="7" class="inventory-empty">Todavía no hay filas de inventario.</td></tr></tbody></table></div>
+      <div class="inventory-footer"><button type="button" class="btn-secondary" id="inventoryClearBtn">Vaciar inventario local</button><button type="button" class="btn-primary" id="inventorySaveBtn">Guardar en este dispositivo</button></div>
+      <p class="field-hint">Faltan = máximo entre 0 y (objetivo − existencia). Sin código significa solo control. Los códigos repetidos se marcan para revisión.</p>
+    </section>
+
     <!-- VISTA: NUEVO / EDITAR PROVEEDOR -->
     <section class="view" id="view-supplier-form">
       <div class="field">
@@ -1342,6 +1357,7 @@ main {
   <nav class="app-bottom" aria-label="Navegación principal">
     <button class="nav-btn active" id="navSuppliers" type="button"><span class="nav-icon">⌂</span><span>Proveedores</span></button>
     <button class="nav-btn" id="navHistory" type="button"><span class="nav-icon">▤</span><span>Pedidos</span></button>
+    <button class="nav-btn" id="navInventory" type="button"><span class="nav-icon">▦</span><span>Inventario</span></button>
     <button class="nav-btn" id="navMenu" type="button"><span class="nav-icon">ⓘ</span><span>Info</span></button>
   </nav>
 
