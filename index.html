@@ -1132,21 +1132,26 @@ main {
     }
   }
 
-</style>
 
-/* Ajuste del logotipo Palermo: recorta las esquinas del fondo cuadrado */
-.brand-mark,
-.auth-logo {
-  border-radius: 50% !important;
-  overflow: hidden;
-}
-.brand-mark img,
-.auth-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-}
+  /* Logotipo circular: recorta el fondo cuadrado de la imagen */
+  .brand-mark,
+  .auth-logo {
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    clip-path: circle(50%);
+    isolation: isolate;
+  }
+  .brand-mark img,
+  .auth-logo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50% !important;
+    clip-path: circle(50%);
+  }
+
+</style>
 
 </head>
 <!-- V25: acceso multiusuario con traducción interna usuario -> correo de Supabase; no se muestran usuarios registrados. -->
