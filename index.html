@@ -2060,6 +2060,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     s.classList.toggle("active", state.view === "suppliers" || state.view === "order" || state.view === "supplier-form");
     h.classList.toggle("active", state.view === "history");
     document.getElementById("navMenu").classList.remove("active");
+    var inv=document.getElementById("navInventory"); if(inv)inv.classList.toggle("active",state.view==="inventory");
   }
 
   function setView(view) {
@@ -3608,6 +3609,32 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     }
   }
 
+  // Inventario de pruebas: los datos se guardan solo en este dispositivo.
+  var inventoryRows = [];
+  function inventoryKey() { return "pedidos_inventory_local_" + (currentAuthUserId || "no_user"); }
+  function loadInventoryLocal() { try { var raw = currentAuthUserId ? localStorage.getItem(inventoryKey()) : null; inventoryRows = raw ? JSON.parse(raw) : []; if (!Array.isArray(inventoryRows)) inventoryRows = []; } catch(e) { inventoryRows = []; } }
+  function inventoryShortage(row) { return Math.max(0, (Number(row.target) || 0) - (Number(row.stock) || 0)); }
+  function renderInventory() {
+    var tbody=document.getElementById("inventoryRows"); if(!tbody)return;
+    if(!inventoryRows.length){tbody.innerHTML='<tr><td colspan="7" class="inventory-empty">Todavía no hay filas de inventario. Importa un Excel para comenzar.</td></tr>';}
+    else { tbody.innerHTML=inventoryRows.map(function(row,i){var duplicate=!!row.code&&inventoryRows.filter(function(x){return String(x.code).trim()===String(row.code).trim();}).length>1; return '<tr data-inventory-index="'+i+'" class="'+(duplicate?"inventory-duplicate":(!row.code?"inventory-review":""))+'"><td><input data-field="code" value="'+escapeHtml(row.code||"")+'"></td><td><input data-field="name" value="'+escapeHtml(row.name||"")+'"></td><td><input type="number" min="0" data-field="stock" value="'+(Number(row.stock)||0)+'"></td><td><input type="number" min="0" data-field="target" value="'+(Number(row.target)||0)+'"></td><td class="inventory-shortage">'+inventoryShortage(row)+(duplicate?" · Código repetido":(!row.code?" · Solo control":""))+'</td><td><select data-field="linkedProduct"><option value="">— Vincular después —</option></select></td><td><button type="button" class="inventory-delete" data-delete-row="'+i+'">✕</button></td></tr>';}).join("");}
+    var total=inventoryRows.reduce(function(n,row){return n+inventoryShortage(row);},0); document.getElementById("inventorySummary").textContent=inventoryRows.length+" filas · "+total+" unidades faltantes";
+  }
+  function parseInventoryRows(rows) {
+    if(!rows||!rows.length){showAlert("El Excel no contiene filas.");return;}
+    var start=0, cols={code:0,name:1,stock:2,target:3};
+    for(var i=0;i<Math.min(rows.length,8);i++){var h=(rows[i]||[]).map(function(v){return String(v||"").trim().toLowerCase();});var c=h.findIndex(function(v){return /^(código|codigo|sku)$/.test(v);});var n=h.findIndex(function(v){return /^(nombre|producto|nombre del producto)$/.test(v);});var st=h.findIndex(function(v){return /^(existencia|stock)$/.test(v);});var t=h.findIndex(function(v){return /^(cantidad objetivo|objetivo|stock objetivo)$/.test(v);});if(c>=0&&n>=0&&st>=0&&t>=0){start=i+1;cols={code:c,name:n,stock:st,target:t};break;}}
+    var next=[];rows.slice(start).forEach(function(row){if(!Array.isArray(row)||row.every(function(v){return String(v||"").trim()==="";}))return;var code=String(row[cols.code]||"").trim();var name=String(row[cols.name]||"").trim();if(!code&&!name)return;var stock=Number(String(row[cols.stock]||"0").replace(",","."));var target=Number(String(row[cols.target]||"0").replace(",","."));if(!Number.isFinite(stock)||stock<0)stock=0;if(!Number.isFinite(target)||target<0)target=0;next.push({id:uid(),code:code,name:name,stock:stock,target:target,linkedProduct:""});});
+    if(!next.length){showAlert("No encontré filas. Usa Código, Nombre, Existencia y Cantidad objetivo.");return;} inventoryRows=next;renderInventory();showAlert("Excel leído: "+next.length+" filas. No se ha modificado ningún pedido.","Inventario importado");
+  }
+  document.getElementById("navInventory").addEventListener("click",function(){loadInventoryLocal();setView("inventory");renderInventory();});
+  document.getElementById("inventoryImportBtn").addEventListener("click",function(){document.getElementById("inventoryExcelInput").click();});
+  document.getElementById("inventoryExcelInput").addEventListener("change",function(e){var file=e.target.files&&e.target.files[0];e.target.value="";if(!file)return;if(!window.XLSX){showAlert("No se pudo cargar el lector de Excel.");return;}var reader=new FileReader();reader.onload=function(evt){try{var wb=XLSX.read(evt.target.result,{type:"array"});var name=wb.SheetNames[0];if(name)parseInventoryRows(XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:"",blankrows:false}));}catch(err){showAlert("No se pudo leer el Excel.");}};reader.readAsArrayBuffer(file);});
+  document.getElementById("inventoryAddBtn").addEventListener("click",function(){inventoryRows.push({id:uid(),code:"",name:"",stock:0,target:0,linkedProduct:""});renderInventory();});
+  document.getElementById("inventoryRows").addEventListener("change",function(e){var field=e.target.getAttribute("data-field");var tr=e.target.closest("tr[data-inventory-index]");if(!field||!tr)return;var row=inventoryRows[Number(tr.getAttribute("data-inventory-index"))];row[field]=(field==="stock"||field==="target")?Math.max(0,Number(e.target.value)||0):e.target.value;renderInventory();});
+  document.getElementById("inventoryRows").addEventListener("click",function(e){var b=e.target.closest("[data-delete-row]");if(!b)return;inventoryRows.splice(Number(b.getAttribute("data-delete-row")),1);renderInventory();});
+  document.getElementById("inventorySaveBtn").addEventListener("click",function(){if(!currentAuthUserId){showAlert("Inicia sesión para guardar el inventario.");return;}try{localStorage.setItem(inventoryKey(),JSON.stringify(inventoryRows));showAlert("Guardado solo en este dispositivo. No se han creado pedidos.","Inventario guardado");}catch(e){showAlert("No se pudo guardar el inventario local.");}});
+  document.getElementById("inventoryClearBtn").addEventListener("click",function(){showConfirm({title:"Vaciar inventario local",message:"Solo se borrarán las filas de inventario de este dispositivo. Los pedidos no se tocarán.",confirmText:"Vaciar inventario",danger:true,onConfirm:function(){inventoryRows=[];try{localStorage.removeItem(inventoryKey());}catch(e){}renderInventory();}});});
   // ---------- Formulario del proveedor ----------
   document.getElementById("fabAddSupplier").addEventListener("click", function() {
     openSupplierForm(null);
@@ -3743,6 +3770,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   // ---------- Renderizado principal ----------
   function render() {
+    if(state.view==="inventory")renderInventory();
     if (state.view === "suppliers") renderSuppliers();
     else if (state.view === "order") renderOrder();
     else if (state.view === "history") renderHistory();
