@@ -3775,8 +3775,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     else if(field==="linkedProduct"){
       row.linkedProduct=e.target.value||"";
       var linked=inventoryLinkedProduct(row.linkedProduct);
-      if(linked&&linked.code)row.code=linked.code;
-      else if(!linked)row.code="";
+      if(linked)row.code=linked.code||"";
+      else row.code="";
     } else {
       row[field]=e.target.value;
       if(field==="code"){var match=inventoryProductForCode(row.code);row.linkedProduct=match?String(match.supplier.id)+"::"+String(match.product.id):"";}
