@@ -138,6 +138,8 @@
   @media(max-width:380px){.header-username{max-width:65px}.header-logout{padding:4px 6px;font-size:.56rem}.product-tools-row{gap:6px}.product-import-btn{max-width:45%;font-size:.68rem;padding:8px 7px}}
   .app-bottom { position:fixed; left:50%; bottom:0; transform:translateX(-50%); width:min(560px,100%); z-index:40; padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)); background:rgba(16,27,58,.98); border-top:1px solid rgba(255,255,255,.08); display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; }
   .nav-btn { border:0; background:transparent; color:#AAB7D2; border-radius:14px; min-height:50px; font-family:inherit; font-weight:700; font-size:.72rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; }
+  .app-bottom { display:flex; justify-content:center; align-items:center; gap:8px; padding-left:12px; padding-right:12px; }
+  .app-bottom .nav-btn { flex:0 1 116px; min-width:0; }
   .nav-btn .nav-icon { font-size:1.15rem; line-height:1; }
   .nav-btn.active { background:linear-gradient(135deg,#6545FF,#3C66FF); color:#fff; box-shadow:0 8px 20px rgba(50,76,220,.32); }
   .nav-online-dot { width:8px; height:8px; border-radius:50%; background:var(--green); display:inline-block; margin-left:3px; }
@@ -2072,6 +2074,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   function setView(view) {
     state.view = view;
+    try { if (currentAuthUserId && ["suppliers","history","inventory"].includes(view)) localStorage.setItem(getUserStorageKey()+"_lastView", view); } catch (e) {}
     document.querySelectorAll(".view").forEach(function(el) { el.classList.remove("active"); });
     var target = document.getElementById("view-" + view);
     if (target) target.classList.add("active");
