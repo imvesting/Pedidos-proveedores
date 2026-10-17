@@ -1639,7 +1639,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       phone: normalizeColombianPhone(s.phone || ""),
       logo: s.logo || null,
       products: Array.isArray(s.products) ? s.products.map(function(p) {
-        return { id: p.id || uid(), name: p.name || "", unit: p.unit || "" };
+        return { id: p.id || uid(), code: p.code || "", name: p.name || "", unit: p.unit || "" };
       }) : []
     };
   }
