@@ -3674,12 +3674,28 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   function inventoryKey() { return "pedidos_inventory_local_" + (currentAuthUserId || "no_user"); }
   function loadInventoryLocal() { try { var raw = currentAuthUserId ? localStorage.getItem(inventoryKey()) : null; inventoryRows = raw ? JSON.parse(raw) : []; if (!Array.isArray(inventoryRows)) inventoryRows = []; } catch(e) { inventoryRows = []; } }
   function inventoryShortage(row) { if(row.target===null||row.target===undefined||String(row.target).trim()==="") return null; return Math.max(0, (Number(row.target)||0) - (Number(row.stock)||0)); }
-  function inventoryOptions(selected) {
+  function inventoryLinkedProduct(key) {
+    if(!key)return null;
+    var parts=String(key).split("::");
+    var supplier=data.suppliers.find(function(s){return String(s.id)===parts[0];});
+    return supplier?(supplier.products||[]).find(function(p){return String(p.id)===parts[1];})||null:null;
+  }
+  function inventoryProductForCode(code) {
+    var wanted=String(code||"").trim().toLowerCase();
+    if(!wanted)return null;
+    var matches=[];
+    data.suppliers.forEach(function(s){(s.products||[]).forEach(function(p){if(String(p.code||"").trim().toLowerCase()===wanted)matches.push({supplier:s,product:p});});});
+    return matches.length===1?matches[0]:null;
+  }
+  function inventoryOptions(selected, code) {
+    var chosen=selected||"";
+    if(!chosen){var match=inventoryProductForCode(code);if(match)chosen=String(match.supplier.id)+"::"+String(match.product.id);}
     var html = '<option value="">— Sin vincular / solo control —</option>';
     data.suppliers.forEach(function(supplier) {
       (supplier.products || []).forEach(function(product) {
         var key = String(supplier.id) + "::" + String(product.id);
-        html += '<option value="' + escapeHtml(key) + '"' + (key === selected ? " selected" : "") + '>' + escapeHtml(supplier.name + " · " + product.name) + '</option>';
+        var label=(product.code?("["+product.code+"] "):"[Sin código] ")+supplier.name+" · "+product.name;
+        html += '<option value="' + escapeHtml(key) + '"' + (key === chosen ? " selected" : "") + '>' + escapeHtml(label) + '</option>';
       });
     });
     return html;
@@ -3687,7 +3703,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   function renderInventory() {
     var tbody=document.getElementById("inventoryRows"); if(!tbody)return;
     if(!inventoryRows.length){tbody.innerHTML='<tr><td colspan="7" class="inventory-empty">Todavía no hay filas de inventario. Importa un Excel para comenzar.</td></tr>';}
-    else { tbody.innerHTML=inventoryRows.map(function(row,i){var duplicate=!!row.code&&inventoryRows.filter(function(x){return String(x.code).trim()===String(row.code).trim();}).length>1; var shortage=inventoryShortage(row); var shortageText=shortage===null?"Configurar objetivo":String(shortage); return '<tr data-inventory-index="'+i+'" class="'+(duplicate?"inventory-duplicate":(!row.code?"inventory-review":""))+'"><td><input data-field="code" value="'+escapeHtml(row.code||"")+'"></td><td><input data-field="name" value="'+escapeHtml(row.name||"")+'">'+(row.sourceSupplier?'<small class="inventory-source">Excel: '+escapeHtml(row.sourceSupplier)+'</small>':"")+'</td><td><input type="number" min="0" data-field="stock" value="'+(Number(row.stock)||0)+'"></td><td><input type="number" min="0" data-field="target" value="'+(row.target===null||row.target===undefined?"":escapeHtml(row.target))+'"></td><td class="inventory-shortage">'+shortageText+(duplicate?" · Código repetido":(!row.code?" · Sin código":""))+'</td><td><select data-field="linkedProduct">' + inventoryOptions(row.linkedProduct || "") + '</select></td><td><button type="button" class="inventory-delete" data-delete-row="'+i+'">✕</button></td></tr>';}).join("");}
+    else { tbody.innerHTML=inventoryRows.map(function(row,i){var duplicate=!!row.code&&inventoryRows.filter(function(x){return String(x.code).trim()===String(row.code).trim();}).length>1; var shortage=inventoryShortage(row); var shortageText=shortage===null?"Configurar objetivo":String(shortage); return '<tr data-inventory-index="'+i+'" class="'+(duplicate?"inventory-duplicate":(!row.code?"inventory-review":""))+'"><td><input data-field="code" value="'+escapeHtml(row.code||"")+'"></td><td><input data-field="name" value="'+escapeHtml(row.name||"")+'">'+(row.sourceSupplier?'<small class="inventory-source">Excel: '+escapeHtml(row.sourceSupplier)+'</small>':"")+'</td><td><input type="number" min="0" data-field="stock" value="'+(Number(row.stock)||0)+'"></td><td><input type="number" min="0" data-field="target" value="'+(row.target===null||row.target===undefined?"":escapeHtml(row.target))+'"></td><td class="inventory-shortage">'+shortageText+(duplicate?" · Código repetido":(!row.code?" · Sin código":""))+'</td><td><select data-field="linkedProduct">' + inventoryOptions(row.linkedProduct || "",row.code||"") + '</select></td><td><button type="button" class="inventory-delete" data-delete-row="'+i+'">✕</button></td></tr>';}).join("");}
     var total=inventoryRows.reduce(function(n,row){return n+(inventoryShortage(row)||0);},0); var pendingTargets=inventoryRows.filter(function(row){return inventoryShortage(row)===null;}).length; document.getElementById("inventorySummary").textContent=inventoryRows.length+" filas · "+total+" unidades faltantes"+(pendingTargets?" · "+pendingTargets+" sin objetivo":"");
   }
   function parseInventoryRows(rows) {
@@ -3736,8 +3752,11 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     if(!next.length){showAlert(legacy?"No encontré productos con una existencia numérica en la columna C.":"No encontré productos. El formato nuevo debe tener Código, Nombre, Existencia y Cantidad objetivo.");return;}
     var previous=inventoryRows.slice();
     next.forEach(function(row){
-      var old=previous.find(function(p){return norm(p.name)===norm(row.name)&&(!row.sourceSupplier||!p.sourceSupplier||norm(p.sourceSupplier)===norm(row.sourceSupplier));});
-      if(old){row.code=old.code||row.code;row.target=old.target===null||old.target===undefined?row.target:old.target;row.linkedProduct=old.linkedProduct||"";}
+      var old=null;
+      if(row.code)old=previous.find(function(p){return String(p.code||"").trim().toLowerCase()===String(row.code).trim().toLowerCase();});
+      if(!old)old=previous.find(function(p){return norm(p.name)===norm(row.name)&&(!row.sourceSupplier||!p.sourceSupplier||norm(p.sourceSupplier)===norm(row.sourceSupplier));});
+      if(old){row.id=old.id||row.id;row.code=row.code||old.code||"";row.target=old.target===null||old.target===undefined?row.target:old.target;row.linkedProduct=old.linkedProduct||"";}
+      if(!row.linkedProduct&&row.code){var match=inventoryProductForCode(row.code);if(match)row.linkedProduct=String(match.supplier.id)+"::"+String(match.product.id);}
     });
     inventoryRows=next;renderInventory();
     showAlert(legacy
@@ -3748,7 +3767,22 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   document.getElementById("inventoryImportBtn").addEventListener("click",function(){document.getElementById("inventoryExcelInput").click();});
   document.getElementById("inventoryExcelInput").addEventListener("change",function(e){var file=e.target.files&&e.target.files[0];e.target.value="";if(!file)return;if(!window.XLSX){showAlert("No se pudo cargar el lector de Excel.");return;}var reader=new FileReader();reader.onload=function(evt){try{var wb=XLSX.read(evt.target.result,{type:"array"});var name=wb.SheetNames[0];if(name)parseInventoryRows(XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:"",blankrows:false}));}catch(err){showAlert("No se pudo leer el Excel.");}};reader.readAsArrayBuffer(file);});
   document.getElementById("inventoryAddBtn").addEventListener("click",function(){inventoryRows.push({id:uid(),code:"",name:"",stock:0,target:null,linkedProduct:""});renderInventory();});
-  document.getElementById("inventoryRows").addEventListener("change",function(e){var field=e.target.getAttribute("data-field");var tr=e.target.closest("tr[data-inventory-index]");if(!field||!tr)return;var row=inventoryRows[Number(tr.getAttribute("data-inventory-index"))];row[field]=field==="target"?(String(e.target.value).trim()===""?null:Math.max(0,Number(e.target.value)||0)):field==="stock"?Math.max(0,Number(e.target.value)||0):e.target.value;renderInventory();});
+  document.getElementById("inventoryRows").addEventListener("change",function(e){
+    var field=e.target.getAttribute("data-field"),tr=e.target.closest("tr[data-inventory-index]");if(!field||!tr)return;
+    var row=inventoryRows[Number(tr.getAttribute("data-inventory-index"))];
+    if(field==="target")row.target=String(e.target.value).trim()===""?null:Math.max(0,Number(e.target.value)||0);
+    else if(field==="stock")row.stock=Math.max(0,Number(e.target.value)||0);
+    else if(field==="linkedProduct"){
+      row.linkedProduct=e.target.value||"";
+      var linked=inventoryLinkedProduct(row.linkedProduct);
+      if(linked&&linked.code)row.code=linked.code;
+      else if(!linked)row.code="";
+    } else {
+      row[field]=e.target.value;
+      if(field==="code"){var match=inventoryProductForCode(row.code);row.linkedProduct=match?String(match.supplier.id)+"::"+String(match.product.id):"";}
+    }
+    renderInventory();
+  });
   document.getElementById("inventoryRows").addEventListener("click",function(e){var b=e.target.closest("[data-delete-row]");if(!b)return;inventoryRows.splice(Number(b.getAttribute("data-delete-row")),1);renderInventory();});
   document.getElementById("inventorySaveBtn").addEventListener("click",function(){if(!currentAuthUserId){showAlert("Inicia sesión para guardar el inventario.");return;}try{localStorage.setItem(inventoryKey(),JSON.stringify(inventoryRows));showAlert("Guardado solo en este dispositivo. No se han creado pedidos.","Inventario guardado");}catch(e){showAlert("No se pudo guardar el inventario local.");}});
   document.getElementById("inventoryClearBtn").addEventListener("click",function(){showConfirm({title:"Vaciar inventario local",message:"Solo se borrarán las filas de inventario de este dispositivo. Los pedidos no se tocarán.",confirmText:"Vaciar inventario",danger:true,onConfirm:function(){inventoryRows=[];try{localStorage.removeItem(inventoryKey());}catch(e){}renderInventory();}});});
