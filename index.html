@@ -1152,7 +1152,7 @@ main {
   }
 
 
-  .inventory-notice{padding:12px 14px;border:1px solid #D9E7DF;border-radius:14px;background:#F1F7F3;color:#245744;font-size:.82rem;margin:12px 0 16px}.inventory-actions,.inventory-footer{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}.inventory-table-wrap{width:100%;overflow-x:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff}.inventory-table{border-collapse:collapse;width:100%;min-width:780px;font-size:.78rem}.inventory-table th,.inventory-table td{padding:8px;border-bottom:1px solid #e8ece9;text-align:left}.inventory-table th{background:#F6F1E7;color:#144F41}.inventory-table input,.inventory-table select{width:100%;min-width:70px;padding:8px;border:1px solid #d7dfda;border-radius:8px;font:inherit}.inventory-table .inventory-shortage{font-weight:800;color:#1F6F5C}.inventory-table tr.inventory-duplicate td{background:#fff2e8}.inventory-table tr.inventory-review td{background:#fff8e8}.inventory-empty{text-align:center;padding:24px;color:#64748b}.inventory-delete{border:0;border-radius:8px;padding:7px 9px;background:#fff0ed;color:#a33;font-weight:700}.app-bottom{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .product-code{display:block;margin-top:3px;color:var(--ink-muted);font-size:.68rem;font-weight:600;letter-spacing:.02em}.inventory-notice{padding:12px 14px;border:1px solid #D9E7DF;border-radius:14px;background:#F1F7F3;color:#245744;font-size:.82rem;margin:12px 0 16px}.inventory-actions,.inventory-footer{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}.inventory-table-wrap{width:100%;overflow-x:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff}.inventory-table{border-collapse:collapse;width:100%;min-width:780px;font-size:.78rem}.inventory-table th,.inventory-table td{padding:8px;border-bottom:1px solid #e8ece9;text-align:left}.inventory-table th{background:#F6F1E7;color:#144F41}.inventory-table input,.inventory-table select{width:100%;min-width:70px;padding:8px;border:1px solid #d7dfda;border-radius:8px;font:inherit}.inventory-table .inventory-shortage{font-weight:800;color:#1F6F5C}.inventory-table tr.inventory-duplicate td{background:#fff2e8}.inventory-table tr.inventory-review td{background:#fff8e8}.inventory-empty{text-align:center;padding:24px;color:#64748b}.inventory-delete{border:0;border-radius:8px;padding:7px 9px;background:#fff0ed;color:#a33;font-weight:700}.app-bottom{grid-template-columns:repeat(4,minmax(0,1fr))!important}
 </style>
 
 </head>
@@ -1459,6 +1459,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       setHeaderUser(headerUser);
       var localData = loadLocalData();
       data.suppliers = localData.suppliers;
+      ensureProductCodes();
       data.orders = localData.orders;
       data.history = Array.isArray(localData.history) ? localData.history : [];
       data.deletedOrderIds = Array.isArray(localData.deletedOrderIds) ? localData.deletedOrderIds.map(String) : [];
@@ -1788,6 +1789,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   }
 
   function saveData() {
+    ensureProductCodes();
     saveLocalOrders();
     cloudSave();
     return true;
@@ -1846,6 +1848,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
       var localData = loadLocalData();
       data.suppliers = localData.suppliers;
+      ensureProductCodes();
       data.orders = localData.orders;
       data.history = Array.isArray(localData.history) ? localData.history : [];
       data.deletedOrderIds = Array.isArray(localData.deletedOrderIds) ? localData.deletedOrderIds.map(String) : [];
@@ -1853,6 +1856,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       var remote = await cloudLoad();
       if (remote && Array.isArray(remote.suppliers)) {
         data.suppliers = remote.suppliers.map(normalizeSupplier);
+        var codesAddedFromCloud = ensureProductCodes();
+        if (codesAddedFromCloud) await cloudSave();
         if (Object.prototype.hasOwnProperty.call(remote, "orders") && remote.orders && typeof remote.orders === "object") {
           data.orders = remote.orders;
         } else if (Object.keys(data.orders || {}).length > 0 || (data.history && data.history.length)) {
@@ -1942,6 +1947,51 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  // Código permanente por producto, único dentro de la cuenta.
+  // Los códigos ya válidos se conservan; solo se corrigen los vacíos o repetidos.
+  function normalizeCatalogName(value) {
+    return String(value == null ? "" : value).trim().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
+  }
+
+  function nextFreeProductCode(used, startAt) {
+    var n = startAt || 1;
+    var code;
+    do { code = "P" + String(n++).padStart(6, "0"); } while (used.has(code.toLowerCase()));
+    used.add(code.toLowerCase());
+    return { code: code, next: n };
+  }
+
+  function ensureProductCodes() {
+    var changed = false, seen = new Set(), used = new Set(), maxNumber = 0;
+    data.suppliers.forEach(function(supplier) {
+      (supplier.products || []).forEach(function(product) {
+        var code = String(product.code || "").trim();
+        if (!code) return;
+        var key = code.toLowerCase();
+        if (seen.has(key)) {
+          product.code = "";
+          changed = true;
+          return;
+        }
+        seen.add(key); used.add(key);
+        var match = /^P(\d+)$/i.exec(code);
+        if (match) maxNumber = Math.max(maxNumber, Number(match[1]) || 0);
+      });
+    });
+    var next = maxNumber + 1;
+    data.suppliers.forEach(function(supplier) {
+      (supplier.products || []).forEach(function(product) {
+        if (String(product.code || "").trim()) return;
+        var assigned = nextFreeProductCode(used, next);
+        product.code = assigned.code;
+        next = assigned.next;
+        changed = true;
+      });
+    });
+    return changed;
   }
 
   function findSupplier(id) {
@@ -2986,7 +3036,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       return (
         '<li>' +
         '<div class="product-row' + (qty > 0 ? " has-qty" : "") + '" data-product-id="' + product.id + '">' +
-          '<div class="product-name-wrap"><div class="product-name-stack"><span class="product-name">' + escapeHtml(product.name) + '</span></div></div>' +
+          '<div class="product-name-wrap"><div class="product-name-stack"><span class="product-name">' + escapeHtml(product.name) + '</span><small class="product-code">Código: ' + escapeHtml(product.code || "") + '</small></div></div>' +
           '<div class="product-qty-area">' +
             '<div class="stepper">' +
               '<button type="button" class="dec" aria-label="Restar">−</button>' +
@@ -3204,7 +3254,14 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       input.focus();
       return;
     }
-    supplier.products.push({ id: uid(), name: name });
+    var duplicate = supplier.products.find(function(p) { return normalizeCatalogName(p.name) === normalizeCatalogName(name); });
+    if (duplicate) {
+      showAlert("Ese producto ya existe en este proveedor. No se creó un duplicado.", "Producto existente");
+      input.value = "";
+      return;
+    }
+    supplier.products.push({ id: uid(), code: "", name: name });
+    ensureProductCodes();
     if (saveData()) {
       input.value = "";
       renderOrder();
@@ -3478,7 +3535,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     var added = 0, skipped = 0, updatedUnits = 0;
     entries.forEach(function(entry) {
       var existing = supplier.products.find(function(p) {
-        return (p.name || "").trim().toLowerCase() === entry.name.toLowerCase();
+        return normalizeCatalogName(p.name) === normalizeCatalogName(entry.name);
       });
       if (existing) {
         skipped++;
@@ -3488,7 +3545,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         }
         return;
       }
-      supplier.products.push({ id: uid(), name: entry.name, unit: entry.unit || "" });
+      supplier.products.push({ id: uid(), code: "", name: entry.name, unit: entry.unit || "" });
+      ensureProductCodes();
       added++;
     });
 
@@ -3572,7 +3630,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       var phone = block.length > 1 ? normalizeColombianPhone(block[1].value) : "";
       var productRows = block.slice(2);
       if (!supplierName) return;
-      var supplier = data.suppliers.find(function(s) { return (s.name || "").trim().toLowerCase() === supplierName.toLowerCase(); });
+      var supplier = data.suppliers.find(function(s) { return normalizeCatalogName(s.name) === normalizeCatalogName(supplierName); });
       if (!supplier) {
         supplier = { id: uid(), name: supplierName, phone: phone || "", logo: null, products: [] };
         data.suppliers.push(supplier); importedSuppliers++;
@@ -3581,13 +3639,14 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       productRows.forEach(function(entry) {
         var productName = entry.value;
         if (!productName) return;
-        var existing = supplier.products.find(function(p) { return (p.name || "").trim().toLowerCase() === productName.toLowerCase(); });
+        var existing = supplier.products.find(function(p) { return normalizeCatalogName(p.name) === normalizeCatalogName(productName); });
         if (existing) {
           skippedProducts++;
           if (entry.unit && !existing.unit) { existing.unit = entry.unit; updatedUnits++; }
           return;
         }
-        supplier.products.push({ id: uid(), name: productName, unit: entry.unit || "" });
+        supplier.products.push({ id: uid(), code: "", name: productName, unit: entry.unit || "" });
+        ensureProductCodes();
         addedProducts++;
       });
     });
@@ -3790,6 +3849,13 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     }
     if (rawPhone && !isValidColombianPhone(rawPhone)) {
       showAlert("El proveedor no tiene un número de WhatsApp guardado en su perfil.");
+      return;
+    }
+    var duplicateSupplier = data.suppliers.find(function(s) {
+      return normalizeCatalogName(s.name) === normalizeCatalogName(name) && String(s.id) !== String(state.editingSupplierId || "");
+    });
+    if (duplicateSupplier) {
+      showAlert("Ya existe un proveedor con ese nombre. No se creó otro.", "Proveedor existente");
       return;
     }
     if (state.editingSupplierId) {
