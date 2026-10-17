@@ -1180,14 +1180,14 @@ main {
 
 /* Gestión de inventarios: filtros compactos alineados junto a Todos */
 #inventoryFilters{max-width:100%;box-sizing:border-box;}
-#inventoryFilters input[type="date"]{width:118px;min-width:118px;box-sizing:border-box;min-height:40px;padding:9px 12px;font-size:14px;}
+#inventoryFilters input[type="date"]{width:118px;min-width:118px;box-sizing:border-box;min-height:40px;height:40px;padding:9px 12px;font-size:14px;}
 @media(max-width:650px){#inventoryFilters{flex-wrap:wrap!important;}#inventoryFilters>div{margin-left:0!important;width:100%;justify-content:flex-end;flex-wrap:wrap;}#inventoryFilters input[type="date"]{width:118px;min-width:118px;}}
 
-/* Mantener las cuatro secciones de navegación en una sola fila */
-#bottomNav{display:flex;flex-wrap:nowrap;gap:4px;}
-#bottomNav .nav-btn{flex:1 1 0;min-width:0;padding-left:4px;padding-right:4px;white-space:nowrap;font-size:clamp(10px,2.7vw,14px);}
-#bottomNav .nav-btn span{white-space:nowrap;}
-@media(max-width:420px){#bottomNav{gap:2px;}#bottomNav .nav-btn{font-size:10px;padding-left:2px;padding-right:2px;}}
+/* Navegación lateral plegable para escritorio y tablet; navegación inferior en móvil */
+@media(min-width:701px){body{padding-left:62px;transition:padding-left .2s ease}.app-bottom{position:fixed!important;left:0!important;top:0!important;bottom:0!important;width:62px!important;height:100vh!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:8px!important;padding:16px 7px!important;box-sizing:border-box!important;background:var(--surface,#fff)!important;border-right:1px solid var(--border,#e5e7eb)!important;border-top:0!important;box-shadow:2px 0 12px rgba(0,0,0,.05)!important;z-index:1000!important;overflow:hidden!important;transition:width .2s ease!important}.app-bottom:hover,.app-bottom:focus-within,.app-bottom.expanded{width:224px!important;padding:16px 10px!important}.app-bottom .nav-btn{width:100%!important;min-width:0!important;min-height:46px!important;flex:0 0 46px!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:12px!important;padding:8px 10px!important;white-space:nowrap!important;text-align:left!important;overflow:hidden!important}.app-bottom:not(:hover):not(:focus-within):not(.expanded) .nav-btn{justify-content:center!important;padding:8px 0!important}.app-bottom .nav-btn span:not(.nav-icon){display:none!important}.app-bottom:hover .nav-btn span:not(.nav-icon),.app-bottom:focus-within .nav-btn span:not(.nav-icon),.app-bottom.expanded .nav-btn span:not(.nav-icon){display:inline!important}.app-bottom .nav-icon{display:inline-flex!important;flex:0 0 24px!important;width:24px!important;justify-content:center!important;font-size:20px!important}.app-bottom::before{content:"›";display:flex;align-items:center;justify-content:center;flex:0 0 30px;height:30px;font-size:27px;font-weight:700;cursor:pointer;color:var(--ink,#333);border-radius:8px}.app-bottom:hover::before,.app-bottom:focus-within::before,.app-bottom.expanded::before{content:"‹";justify-content:flex-end;padding-right:12px}.app-bottom .nav-btn#navMenu{display:none!important}}
+@media(max-width:700px){.app-bottom{width:auto!important;height:auto!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;display:flex!important;flex-direction:row!important;}}
+@media(max-width:420px){.app-bottom{gap:2px!important}.app-bottom .nav-btn{font-size:10px;padding-left:2px;padding-right:2px}}
+
 </style>
 
 </head>
