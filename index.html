@@ -3875,13 +3875,13 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     if(!data.inventoryOrders[sid]||!data.inventoryOrders[sid][pid])return;
     var row=data.inventoryOrders[sid][pid],qty=Math.max(0,Math.floor(Number(input.value)||0));
     row.qty=qty;row.manualOverride=qty!==Number(row.generatedQty);
-    if(qty===0)delete data.inventoryOrders[sid][pid];
+    if(qty===0){row.qty=0;row.manualOverride=true;}
     if(!Object.keys(data.inventoryOrders[sid]).length)delete data.inventoryOrders[sid];
     saveData();renderInventoryOrders();
   });
   document.getElementById("inventoryOrdersList").addEventListener("click",function(e){
     var remove=e.target.closest("[data-inv-order-remove]");
-    if(remove){var sid=remove.getAttribute("data-supplier-id"),pid=remove.getAttribute("data-product-id");if(data.inventoryOrders[sid]){delete data.inventoryOrders[sid][pid];if(!Object.keys(data.inventoryOrders[sid]).length)delete data.inventoryOrders[sid];saveData();renderInventoryOrders();}return;}
+    if(remove){var sid=remove.getAttribute("data-supplier-id"),pid=remove.getAttribute("data-product-id");if(data.inventoryOrders[sid]&&data.inventoryOrders[sid][pid]){data.inventoryOrders[sid][pid].qty=0;data.inventoryOrders[sid][pid].manualOverride=true;saveData();renderInventoryOrders();}return;}
     var send=e.target.closest("[data-inv-order-send]");if(send)sendInventoryOrder(send.getAttribute("data-supplier-id"));
   });
 
