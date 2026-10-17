@@ -1458,6 +1458,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       data.orders = localData.orders;
       data.history = Array.isArray(localData.history) ? localData.history : [];
       data.inventories = Array.isArray(localData.inventories) ? localData.inventories : [];
+      data.inventoryTemplate = Array.isArray(localData.inventoryTemplate) ? localData.inventoryTemplate : [];
       data.deletedOrderIds = Array.isArray(localData.deletedOrderIds) ? localData.deletedOrderIds.map(String) : [];
       appStarted = true;
       document.body.classList.remove("app-locked");
@@ -1694,7 +1695,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   // Los datos locales no se cargan hasta que el usuario haya iniciado sesión.
   // Así el contenido de la aplicación no se inicializa para visitantes no autenticados.
-  var data = { suppliers: [], orders: {}, history: [], inventories: [], deletedOrderIds: [] };
+  var data = { suppliers: [], orders: {}, history: [], inventories: [], inventoryTemplate: [], deletedOrderIds: [] };
 
   function saveLocalOrders() {
     try {
@@ -1704,6 +1705,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         orders: data.orders,
         history: data.history,
         inventories: data.inventories || [],
+        inventoryTemplate: data.inventoryTemplate || [],
         deletedOrderIds: data.deletedOrderIds || []
       }));
     } catch (e) {
@@ -1761,7 +1763,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if (!currentAuthUserId) throw new Error("No se identificó la cuenta activa");
       var payload = {
         user_id: currentAuthUserId,
-        data: { suppliers: data.suppliers, orders: data.orders, history: data.history, inventories: data.inventories || [], pendingOrders: data.pendingOrders || {}, deletedOrderIds: data.deletedOrderIds || [] },
+        data: { suppliers: data.suppliers, orders: data.orders, history: data.history, inventories: data.inventories || [], inventoryTemplate: data.inventoryTemplate || [], pendingOrders: data.pendingOrders || {}, deletedOrderIds: data.deletedOrderIds || [] },
         updated_at: new Date().toISOString()
       };
       var result = await withTimeout(
