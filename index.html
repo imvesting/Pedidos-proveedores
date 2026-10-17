@@ -1288,13 +1288,17 @@ main {
 
     <!-- VISTA: INVENTARIO -->
     <section class="view" id="view-inventory">
-      <div class="hero-copy"><h2>Inventario</h2><p>Importa el conteo del día, finalízalo y consulta o descarga el historial en Excel.</p></div>
-      <div class="view-toolbar" id="inventoryFilters"><button class="btn-secondary inventory-filter active" data-inventory-filter="pending" type="button" aria-pressed="true" style="padding:10px 16px;font-size:15px;min-height:42px">Pendientes</button><button class="btn-secondary inventory-filter" data-inventory-filter="sent" type="button" aria-pressed="false" style="padding:10px 16px;font-size:15px;min-height:42px">Finalizados</button><button class="btn-secondary inventory-filter" data-inventory-filter="all" type="button" aria-pressed="false" style="padding:10px 16px;font-size:15px;min-height:42px">Todos</button></div><div class="settings-card" style="padding:12px;margin-bottom:12px"><strong style="display:block;margin-bottom:8px">Buscar inventarios finalizados por fecha</strong><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><label style="flex:1;min-width:120px;font-size:.78rem;color:var(--ink-muted)">Desde<input id="inventoryDateFrom" class="text-input" type="date" style="display:block;width:100%;margin-top:5px"></label><label style="flex:1;min-width:120px;font-size:.78rem;color:var(--ink-muted)">Hasta<input id="inventoryDateTo" class="text-input" type="date" style="display:block;width:100%;margin-top:5px"></label><button class="btn-secondary" id="inventoryDateClear" type="button">Limpiar fechas</button></div></div>
+      <div class="hero-copy"><h2>Inventario</h2><p>Inicia un conteo nuevo, registra las existencias y finaliza el inventario.</p></div>
       <div class="settings-card" style="padding:14px;margin-bottom:12px"><h3 style="margin-top:0">Nuevo inventario</h3><p class="field-hint">Registra las existencias reales de cada producto. Tu avance se guarda automáticamente y puedes finalizar el inventario para consultarlo o descargarlo en Excel.</p>
       <div class="inventory-actions" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-secondary" id="inventoryImportBtn" type="button">📥 Importar Excel</button><button class="btn-secondary" id="inventoryAddRowBtn" type="button">＋ Agregar fila</button><button class="btn-secondary" id="inventoryTemplateBtn" type="button">Descargar plantilla</button></div>
       <input id="inventoryExcelInput" type="file" accept=".xlsx,.xls,.csv" style="display:none">
       <div class="inventory-table-wrap" style="width:100%;overflow-x:hidden;margin-top:12px"><table id="inventoryDraftTable" class="inventory-draft-table" style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:22%"><col style="width:51%"><col style="width:20%"><col style="width:7%"></colgroup><thead><tr><th>CODIGO</th><th>PRODUCTO</th><th>INVENTARIO</th><th aria-label="Acciones"></th></tr></thead><tbody id="inventoryDraftRows"></tbody></table></div>
       <div class="inventory-actions" style="display:flex;gap:8px;margin-top:14px"><button class="btn-primary" id="inventoryFinalizeBtn" type="button">Finalizar inventario</button><button class="btn-secondary" id="inventoryClearBtn" type="button">Vaciar</button></div><p class="field-hint" id="inventoryEmailStatus">El correo automático con Excel requiere conectar la función de envío.</p></div>
+      </section>
+    <!-- VISTA: GESTIÓN DE INVENTARIOS -->
+    <section class="view" id="view-inventory-management">
+      <div class="hero-copy"><h2>Gestión de Inventarios</h2><p>Consulta, modifica, descarga y administra los inventarios guardados.</p></div>
+      <div class="view-toolbar" id="inventoryFilters" style="display:flex;align-items:center;gap:6px;flex-wrap:nowrap"><button class="btn-secondary inventory-filter active" data-inventory-filter="pending" type="button" aria-pressed="true" style="padding:9px 12px;font-size:14px;min-height:40px">Pendientes</button><button class="btn-secondary inventory-filter" data-inventory-filter="sent" type="button" aria-pressed="false" style="padding:9px 12px;font-size:14px;min-height:40px">Finalizados</button><button class="btn-secondary inventory-filter" data-inventory-filter="all" type="button" aria-pressed="false" style="padding:9px 12px;font-size:14px;min-height:40px">Todos</button><div style="display:flex;align-items:center;gap:4px;margin-left:auto;flex:0 0 auto"><label for="inventoryDateFrom" style="font-size:.7rem;color:var(--ink-muted)">Desde</label><input id="inventoryDateFrom" class="text-input" type="date" aria-label="Fecha desde" style="width:118px;min-width:0;padding:7px 4px;font-size:11px;min-height:38px"><label for="inventoryDateTo" style="font-size:.7rem;color:var(--ink-muted)">Hasta</label><input id="inventoryDateTo" class="text-input" type="date" aria-label="Fecha hasta" style="width:118px;min-width:0;padding:7px 4px;font-size:11px;min-height:38px"><button class="btn-secondary" id="inventoryDateClear" type="button" style="padding:7px 8px;min-height:38px;font-size:12px">×</button></div></div>
       <div id="inventoryHistoryList" class="list"></div><div id="inventoryHistoryEmpty" class="empty-state"><strong>No hay inventarios pendientes</strong><p>Los inventarios sin finalizar aparecerán aquí y podrás continuarlos después.</p></div>
     </section>
     <!-- VISTA: PEDIDOS -->
@@ -1380,6 +1384,7 @@ main {
     <button class="nav-btn active" id="navSuppliers" type="button"><span class="nav-icon">⌂</span><span>Proveedores</span></button>
     <button class="nav-btn" id="navHistory" type="button"><span class="nav-icon">▤</span><span>Pedidos</span></button>
     <button class="nav-btn" id="navInventory" type="button"><span class="nav-icon">▦</span><span>Inventario</span></button>
+    <button class="nav-btn" id="navInventoryManagement" type="button"><span class="nav-icon">▤</span><span>Gestión de Inventarios</span></button>
     <button class="nav-btn" id="navMenu" type="button" style="display:none"><span class="nav-icon">ⓘ</span><span>Info</span></button>
   </nav>
 
@@ -2092,13 +2097,13 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     var h = document.getElementById("navHistory");
     s.classList.toggle("active", state.view === "suppliers" || state.view === "order" || state.view === "supplier-form");
     h.classList.toggle("active", state.view === "history");
-    var ni=document.getElementById("navInventory"); if(ni)ni.classList.toggle("active",state.view==="inventory");
+    var ni=document.getElementById("navInventory"); if(ni)ni.classList.toggle("active",state.view==="inventory"); var nim=document.getElementById("navInventoryManagement"); if(nim)nim.classList.toggle("active",state.view==="inventory-management");
     document.getElementById("navMenu").classList.remove("active");
   }
 
   function setView(view) {
     state.view = view;
-    try { if (currentAuthUserId && ["suppliers","history","inventory"].includes(view)) localStorage.setItem(getUserStorageKey()+"_lastView", view); } catch (e) {}
+    try { if (currentAuthUserId && ["suppliers","history","inventory","inventory-management"].includes(view)) localStorage.setItem(getUserStorageKey()+"_lastView", view); } catch (e) {}
     document.querySelectorAll(".view").forEach(function(el) { el.classList.remove("active"); });
     var target = document.getElementById("view-" + view);
     if (target) target.classList.add("active");
@@ -2142,7 +2147,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   document.getElementById("navSuppliers").addEventListener("click", function(){ setView("suppliers"); });
   document.getElementById("navHistory").addEventListener("click", function(){ setView("history"); });
-  document.getElementById("navInventory").addEventListener("click", function(){ setView("inventory"); openLatestInventoryDraft(); renderInventoryDraft(); renderInventoryHistory(); });
+  document.getElementById("navInventory").addEventListener("click", function(){ setView("inventory"); openLatestInventoryDraft(); renderInventoryDraft(); });
+  document.getElementById("navInventoryManagement").addEventListener("click", function(){ setView("inventory-management"); renderInventoryHistory(); });
   document.getElementById("backToSuppliers").addEventListener("click", function(){
     state.activeSupplierId = null;
     state.editingSupplierId = null;
