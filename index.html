@@ -1522,7 +1522,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       data.deletedOrderIds = Array.isArray(localData.deletedOrderIds) ? localData.deletedOrderIds.map(String) : [];
       appStarted = true;
       document.body.classList.remove("app-locked");
-      var savedView = "suppliers"; try { savedView = localStorage.getItem(getUserStorageKey()+"_lastView") || "suppliers"; } catch (e) {} if (!["suppliers","history","inventory","inventory-management"].includes(savedView)) savedView="suppliers"; setView(savedView);
+      var savedView = "suppliers"; try { savedView = localStorage.getItem(getUserStorageKey()+"_lastView") || "suppliers"; } catch (e) {} if (!["suppliers","history","inventory","inventory-management"].includes(savedView)) savedView="suppliers"; try { setView(savedView); } catch (viewError) { console.error("No se pudo restaurar la sección, se abrirán Proveedores", viewError); setView("suppliers"); }
       var adminBtn = document.getElementById("adminUsersBtn");
       if (adminBtn) adminBtn.style.display = (await isAdminUser()) ? "block" : "none";
       await initCloud();
@@ -2130,7 +2130,9 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   }
 
   function setView(view) {
+    if (!["suppliers","order","history","supplier-form","settings","inventory","inventory-management"].includes(view)) view = "suppliers";
     state.view = view;
+    try { localStorage.setItem(getUserStorageKey()+"_lastView", view); } catch (e) {}
     if (window.matchMedia("(min-width: 1000px)").matches) { var nav=document.querySelector(".app-bottom"); if(nav) nav.classList.remove("expanded"); if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest(".app-bottom")) document.activeElement.blur(); }
     try { if (currentAuthUserId && ["suppliers","history","inventory","inventory-management"].includes(view)) localStorage.setItem(getUserStorageKey()+"_lastView", view); } catch (e) {}
     document.querySelectorAll(".view").forEach(function(el) { el.classList.remove("active"); });
