@@ -1975,7 +1975,13 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if (state.view === "suppliers") renderSuppliers();
       else if (state.view === "order") {
         if (!getActiveSupplier()) setView("suppliers");
-        else renderOrder();
+        else {
+          // La consulta periódica ocurre cada 10 segundos. No reconstruir el pedido
+          // mientras una cantidad tiene el foco: eso cerraba el teclado móvil.
+          var activeQty = document.activeElement;
+          var editingQty = activeQty && activeQty.matches && activeQty.matches('#productList input[data-qty-input]');
+          if (!editingQty) renderOrder();
+        }
       } else if (state.view === "history") renderHistory();
       setCloudStatus("☁️ Sincronizado", true);
     } catch (e) {
