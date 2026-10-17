@@ -3229,15 +3229,8 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     if (!e.target.matches || !e.target.matches("input[data-qty-input]")) return;
     if (String(e.target.value) === "0") e.target.value = "";
   });
-  // Si el teclado del sistema pierde el foco por sí solo, recuperarlo.
-  // Solo permitir cerrar la edición cuando el usuario toca fuera de una cantidad.
-  var qtyOutsideTap = false;
-  document.addEventListener("pointerdown", function(e) {
-    qtyOutsideTap = !(e.target && e.target.closest && e.target.closest('#productList input[data-qty-input]'));
-  }, true);
-  document.addEventListener("pointerup", function() {
-    setTimeout(function(){ qtyOutsideTap = false; }, 0);
-  }, true);
+  // Igual que Inventario: no forzar ni robar el foco. El teclado permanece
+  // asociado al campo que el usuario está editando; al salir, guardar cero si quedó vacío.
   document.getElementById("productList").addEventListener("focusout", function(e) {
     if (!e.target.matches || !e.target.matches("input[data-qty-input]")) return;
     var input = e.target;
@@ -3246,16 +3239,6 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
       var row = input.closest(".product-row");
       var supplier = getActiveSupplier();
       if (row && supplier) setQty(supplier, row.getAttribute("data-product-id"), 0, true);
-    }
-    // Cambiar a otra casilla por Enter no debe perder el teclado.
-    if (!qtyOutsideTap && state.view === "order" && input.isConnected) {
-      setTimeout(function() {
-        var active = document.activeElement;
-        if (active && active.matches && active.matches('#productList input[data-qty-input]')) return;
-        if (input.isConnected && state.view === "order") {
-          input.focus({ preventScroll: true });
-        }
-      }, 0);
     }
   });
 
