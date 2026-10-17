@@ -1180,8 +1180,14 @@ main {
 
 /* Gestión de inventarios: filtros compactos alineados junto a Todos */
 #inventoryFilters{max-width:100%;box-sizing:border-box;}
-#inventoryFilters input[type="date"]{width:118px;min-width:118px;box-sizing:border-box;}
+#inventoryFilters input[type="date"]{width:118px;min-width:118px;box-sizing:border-box;min-height:40px;padding:9px 12px;font-size:14px;}
 @media(max-width:650px){#inventoryFilters{flex-wrap:wrap!important;}#inventoryFilters>div{margin-left:0!important;width:100%;justify-content:flex-end;flex-wrap:wrap;}#inventoryFilters input[type="date"]{width:118px;min-width:118px;}}
+
+/* Mantener las cuatro secciones de navegación en una sola fila */
+#bottomNav{display:flex;flex-wrap:nowrap;gap:4px;}
+#bottomNav .nav-btn{flex:1 1 0;min-width:0;padding-left:4px;padding-right:4px;white-space:nowrap;font-size:clamp(10px,2.7vw,14px);}
+#bottomNav .nav-btn span{white-space:nowrap;}
+@media(max-width:420px){#bottomNav{gap:2px;}#bottomNav .nav-btn{font-size:10px;padding-left:2px;padding-right:2px;}}
 </style>
 
 </head>
