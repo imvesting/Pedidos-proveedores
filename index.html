@@ -3162,24 +3162,24 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
 
   // Campo numérico nativo: admite decimales y entrada normal del teclado móvil.
 
-  // Cambios delegados para los campos de cantidad.
+  // Guardar cantidades sin reconstruir la lista: el teclado móvil permanece abierto.
   document.getElementById("productList").addEventListener("change", function(e) {
     if (e.target.tagName !== "INPUT" || !e.target.matches("input[data-qty-input]")) return;
     var row = e.target.closest(".product-row");
     if (!row) return;
     var supplier = getActiveSupplier();
     if (!supplier) return;
-    var productId = row.getAttribute("data-product-id");
     var raw = String(e.target.value || "").replace(",", ".");
     var v = raw.trim() === "" ? 0 : Number(raw);
     if (!Number.isFinite(v) || v < 0) v = 0;
-    setQty(supplier, productId, v);
+    setQty(supplier, row.getAttribute("data-product-id"), v, true);
     e.target.value = v > 0 ? String(v) : "0";
   });
 
   document.getElementById("productList").addEventListener("keydown", function(e) {
     if (!e.target.matches || !e.target.matches("input[data-qty-input]") || e.key !== "Enter") return;
     e.preventDefault();
+    e.stopPropagation();
     var current = e.target;
     var row = current.closest(".product-row");
     var supplier = getActiveSupplier();
@@ -3187,15 +3187,33 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
       var raw = String(current.value || "").replace(",", ".");
       var qty = raw.trim() === "" ? 0 : Number(raw);
       if (!Number.isFinite(qty) || qty < 0) qty = 0;
-      setQty(supplier, row.getAttribute("data-product-id"), qty);
+      setQty(supplier, row.getAttribute("data-product-id"), qty, true);
       current.value = qty > 0 ? String(qty) : "0";
     }
     var fields = Array.from(document.querySelectorAll('#productList input[data-qty-input]'));
-    var next = fields[fields.indexOf(current) + 1];
-    if (next) { next.focus(); next.select(); }
+    var index = fields.indexOf(current);
+    var next = index >= 0 ? fields[index + 1] : null;
+    if (next) {
+      next.focus({ preventScroll: true });
+      next.select();
+    } else {
+      current.focus({ preventScroll: true });
+      current.select();
+    }
   });
   document.getElementById("productList").addEventListener("focusin", function(e) {
-    if (e.target.matches && e.target.matches("input[data-qty-input]")) { e.target.focus({ preventScroll: true }); }
+    if (!e.target.matches || !e.target.matches("input[data-qty-input]")) return;
+    if (String(e.target.value) === "0") e.target.value = "";
+  });
+  document.getElementById("productList").addEventListener("focusout", function(e) {
+    if (!e.target.matches || !e.target.matches("input[data-qty-input]")) return;
+    var input = e.target;
+    if (String(input.value).trim() === "") {
+      input.value = "0";
+      var row = input.closest(".product-row");
+      var supplier = getActiveSupplier();
+      if (row && supplier) setQty(supplier, row.getAttribute("data-product-id"), 0, true);
+    }
   });
 
   function enableRename(row, supplier, product) {
@@ -3263,7 +3281,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     }
   });
 
-  function setQty(supplier, productId, qty) {
+  function setQty(supplier, productId, qty, preserveOrderInput) {
     if (!data.orders[supplier.id]) data.orders[supplier.id] = {};
     if (qty > 0) {
       data.orders[supplier.id][productId] = qty;
@@ -3287,7 +3305,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     rebuildPendingOrders();
     saveLocalOrders();
     cloudSave();
-    renderOrder();
+    if (!preserveOrderInput) renderOrder();
     renderHistory();
   }
 
