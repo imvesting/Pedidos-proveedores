@@ -1459,6 +1459,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       data.history = Array.isArray(localData.history) ? localData.history : [];
       data.inventories = Array.isArray(localData.inventories) ? localData.inventories : [];
       data.inventoryTemplate = Array.isArray(localData.inventoryTemplate) ? localData.inventoryTemplate : [];
+      data.inventoryTemplate = Array.isArray(localData.inventoryTemplate) ? localData.inventoryTemplate : [];
       data.deletedOrderIds = Array.isArray(localData.deletedOrderIds) ? localData.deletedOrderIds.map(String) : [];
       appStarted = true;
       document.body.classList.remove("app-locked");
@@ -1674,7 +1675,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   function loadLocalData() {
     try {
-      if (!currentAuthUserId) return { suppliers: [], orders: {}, history: [], deletedOrderIds: [] };
+      if (!currentAuthUserId) return { suppliers: [], orders: {}, history: [], inventories: [], inventoryTemplate: [], deletedOrderIds: [] };
       var raw = localStorage.getItem(getUserStorageKey());
       if (raw) {
         var parsed = JSON.parse(raw);
@@ -1682,6 +1683,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
           suppliers: (Array.isArray(parsed.suppliers) ? parsed.suppliers : []).map(normalizeSupplier),
           orders: (parsed.orders && typeof parsed.orders === "object") ? parsed.orders : {},
           history: Array.isArray(parsed.history) ? parsed.history : [],
+          inventories: Array.isArray(parsed.inventories) ? parsed.inventories : [],
+          inventoryTemplate: Array.isArray(parsed.inventoryTemplate) ? parsed.inventoryTemplate : [],
           deletedOrderIds: Array.isArray(parsed.deletedOrderIds) ? parsed.deletedOrderIds.map(String) : []
         };
       }
@@ -1813,6 +1816,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
           if (remote.pendingOrders && typeof remote.pendingOrders === "object") data.pendingOrders = remote.pendingOrders;
           rebuildPendingOrders();
           if (Array.isArray(remote.history)) data.history = remote.history.filter(function(x){ return !isOrderDeleted(x.id); });
+          if (Array.isArray(remote.inventories)) data.inventories = remote.inventories;
+          if (Array.isArray(remote.inventoryTemplate)) data.inventoryTemplate = remote.inventoryTemplate;
           if (Array.isArray(remote.deletedOrderIds)) data.deletedOrderIds = remote.deletedOrderIds.map(String);
           rebuildPendingOrders();
           saveLocalOrders();
@@ -1861,6 +1866,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
           await cloudSave();
         }
         if (Array.isArray(remote.history)) data.history = remote.history.filter(function(x){ return !(Array.isArray(remote.deletedOrderIds) && remote.deletedOrderIds.map(String).includes(String(x.id))); });
+        if (Array.isArray(remote.inventories)) data.inventories = remote.inventories;
+        if (Array.isArray(remote.inventoryTemplate)) data.inventoryTemplate = remote.inventoryTemplate;
         if (Array.isArray(remote.deletedOrderIds)) data.deletedOrderIds = remote.deletedOrderIds.map(String);
         rebuildPendingOrders();
         saveLocalOrders();
@@ -2752,7 +2759,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 var inventoryDraft=[],inventoryFilter="pending",activeInventoryDraftId=null;
 function invDate(d){return new Date(d||Date.now()).toLocaleDateString("es-CO",{year:"numeric",month:"2-digit",day:"2-digit"});}
 function invRows(record){var out=[["CODIGO","PRODUCTO","INVENTARIO"]],lastSupplier=null; (record.rows||[]).forEach(function(r){var supplier=String(r.supplier||"").trim();if(supplier!==lastSupplier){if(lastSupplier!==null)out.push(["","",""]);if(supplier)out.push(["",supplier,""]);lastSupplier=supplier;}out.push([r.code||"",r.name||"",Number(r.qty)||0]);});return out;}
-function invDownload(record){if(!window.XLSX){showAlert("No se pudo cargar Excel.");return;}var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(invRows(record)),"Inventario");XLSX.writeFile(wb,"Inventario_"+record.dateKey+".xlsx");}
+function invDownload(record){if(!window.XLSX){showAlert("No se pudo cargar Excel.");return;}var rows=invRows(record),ws=XLSX.utils.aoa_to_sheet(rows);ws["!cols"]=[{wch:16},{wch:38},{wch:16}];ws["!rows"]=rows.map(function(row){return {hpt:row[0]===""&&row[1]&&row[2]===""?23:20};});rows.forEach(function(row,ri){var isSupplier=row[0]===""&&String(row[1]||"").trim()!==""&&row[2]==="";row.forEach(function(val,ci){var ref=XLSX.utils.encode_cell({r:ri,c:ci});if(!ws[ref])ws[ref]={t:"s",v:""};ws[ref].s={font:{bold:isSupplier},fill:isSupplier?{patternType:"solid",fgColor:{rgb:"D9EAD3"}}:{patternType:"solid",fgColor:{rgb:"FFFFFF"}},alignment:{vertical:"center"},border:{top:{style:"thin",color:{rgb:"808080"}},bottom:{style:"thin",color:{rgb:"808080"}},left:{style:"thin",color:{rgb:"808080"}},right:{style:"thin",color:{rgb:"808080"}}}};});});var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Inventario");XLSX.writeFile(wb,"Inventario_"+record.dateKey+".xlsx");}
 function ensureInventoryDraftRecord(){data.inventories=data.inventories||[];var r=activeInventoryDraftId&&(data.inventories||[]).find(x=>x.id===activeInventoryDraftId&&x.status==="draft");if(!r){var now=new Date();r={id:uid(),dateKey:now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0"),dateLabel:invDate(now),createdAt:now.toISOString(),updatedAt:now.toISOString(),status:"draft",rows:[]};activeInventoryDraftId=r.id;data.inventories.unshift(r);}r.rows=inventoryDraft.map(x=>({supplier:String(x.supplier||""),code:String(x.code||""),name:String(x.name||""),qty:x.qty===""?"":Number(x.qty)||0}));r.updatedAt=new Date().toISOString();saveData();return r;}
 function persistInventoryDraft(){if(!inventoryDraft.length){renderInventoryHistory();return;}ensureInventoryDraftRecord();renderInventoryHistory();}
 function openInventoryDraft(id){var r=(data.inventories||[]).find(x=>x.id===id&&x.status==="draft");if(!r)return;activeInventoryDraftId=r.id;inventoryDraft=(r.rows||[]).map(x=>({supplier:String(x.supplier||""),code:String(x.code||""),name:String(x.name||""),qty:x.qty==null?"":String(x.qty)}));renderInventoryDraft();document.getElementById("inventoryEmailStatus").textContent="Inventario en proceso. Tu avance se guarda automáticamente.";renderInventoryHistory();}
