@@ -3162,7 +3162,25 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
 
   // Campo numérico nativo: admite decimales y entrada normal del teclado móvil.
 
-  // Guardar cantidades sin reconstruir la lista: el teclado móvil permanece abierto.
+  // Guardar cada cambio de cantidad al instante, sin reconstruir la lista ni cerrar el teclado.
+  document.getElementById("productList").addEventListener("input", function(e) {
+    if (e.target.tagName !== "INPUT" || !e.target.matches("input[data-qty-input]")) return;
+    var row = e.target.closest(".product-row");
+    if (!row) return;
+    var supplier = getActiveSupplier();
+    if (!supplier) return;
+    var raw = String(e.target.value || "").replace(",", ".");
+    // Mientras el usuario escribe, no convertir un campo vacío en cero.
+    if (raw.trim() === "" || raw.trim() === "-" || raw.trim().endsWith(".")) {
+      var parsed = raw.trim() === "" || raw.trim() === "-" ? null : Number(raw);
+      if (parsed === null || !Number.isFinite(parsed) || parsed < 0) return;
+    }
+    var qty = Number(raw);
+    if (!Number.isFinite(qty) || qty < 0) return;
+    setQty(supplier, row.getAttribute("data-product-id"), qty, true);
+  });
+
+  // Al terminar de editar, confirma también el valor actual aunque no se presione Enter.
   document.getElementById("productList").addEventListener("change", function(e) {
     if (e.target.tagName !== "INPUT" || !e.target.matches("input[data-qty-input]")) return;
     var row = e.target.closest(".product-row");
