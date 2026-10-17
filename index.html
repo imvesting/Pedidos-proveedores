@@ -3756,7 +3756,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if(row.code)old=previous.find(function(p){return String(p.code||"").trim().toLowerCase()===String(row.code).trim().toLowerCase();});
       if(!old)old=previous.find(function(p){return norm(p.name)===norm(row.name)&&(!row.sourceSupplier||!p.sourceSupplier||norm(p.sourceSupplier)===norm(row.sourceSupplier));});
       if(old){row.id=old.id||row.id;row.code=row.code||old.code||"";row.target=old.target===null||old.target===undefined?row.target:old.target;row.linkedProduct=old.linkedProduct||"";}
-      if(!row.linkedProduct&&row.code){var match=inventoryProductForCode(row.code);if(match)row.linkedProduct=String(match.supplier.id)+"::"+String(match.product.id);}
+      if(!row.code){row.linkedProduct="";}
+      else if(!row.linkedProduct){var match=inventoryProductForCode(row.code);if(match)row.linkedProduct=String(match.supplier.id)+"::"+String(match.product.id);}
     });
     inventoryRows=next;renderInventory();
     showAlert(legacy
