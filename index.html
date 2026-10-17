@@ -1857,7 +1857,6 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if (remote && Array.isArray(remote.suppliers)) {
         data.suppliers = remote.suppliers.map(normalizeSupplier);
         var codesAddedFromCloud = ensureProductCodes();
-        if (codesAddedFromCloud) await cloudSave();
         if (Object.prototype.hasOwnProperty.call(remote, "orders") && remote.orders && typeof remote.orders === "object") {
           data.orders = remote.orders;
         } else if (Object.keys(data.orders || {}).length > 0 || (data.history && data.history.length)) {
@@ -1869,6 +1868,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         if (Array.isArray(remote.deletedOrderIds)) data.deletedOrderIds = remote.deletedOrderIds.map(String);
         rebuildPendingOrders();
         saveLocalOrders();
+        // Persistir los códigos nuevos solo después de haber cargado todos los datos remotos.
+        if (codesAddedFromCloud) await cloudSave();
       } else {
         await cloudSave();
       }
