@@ -1313,7 +1313,7 @@ main {
     <section class="view" id="view-inventory">
       <div class="hero-copy"><h2>Inventario</h2><p>Controla existencias y calcula cuánto falta para llegar a la cantidad objetivo.</p></div>
       <div class="inventory-notice"><strong>Modo de pruebas</strong><br>Esta primera fase guarda el inventario solo en este dispositivo. No modifica la nube ni crea o envía pedidos.</div>
-      <div class="inventory-actions"><button type="button" class="btn-primary" id="inventoryImportBtn">📥 Importar Excel</button><button type="button" class="btn-secondary" id="inventoryAddBtn">＋ Agregar fila</button></div>
+      <div class="inventory-actions"><button type="button" class="btn-primary" id="inventoryImportBtn">📥 Importar Excel</button><button type="button" class="btn-secondary" id="inventoryAddBtn">＋ Agregar fila</button><button type="button" class="btn-secondary" id="inventoryPreviewBtn">🔎 Previsualizar reposición</button></div>
       <input type="file" id="inventoryExcelInput" accept=".xlsx,.xls,.csv" style="display:none">
       <div class="inventory-summary" id="inventorySummary">Columnas: Código, Nombre, Existencia, Cantidad objetivo.</div>
       <div class="inventory-table-wrap"><table class="inventory-table"><thead><tr><th>Código</th><th>Nombre</th><th>Existencia</th><th>Objetivo</th><th>Faltan</th><th>Vincular producto</th><th></th></tr></thead><tbody id="inventoryRows"><tr><td colspan="7" class="inventory-empty">Todavía no hay filas de inventario.</td></tr></tbody></table></div>
@@ -3765,6 +3765,49 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       :"Excel leído: "+next.length+" filas. No se ha modificado ningún pedido.","Inventario importado");
   }
   document.getElementById("navInventory").addEventListener("click",function(){loadInventoryLocal();setView("inventory");renderInventory();});
+  function previewInventoryReplenishment() {
+    var duplicateCodes = new Set();
+    inventoryRows.forEach(function(row) {
+      var code = String(row.code || "").trim().toLowerCase();
+      if (!code) return;
+      if (inventoryRows.filter(function(other) { return String(other.code || "").trim().toLowerCase() === code; }).length > 1) duplicateCodes.add(code);
+    });
+    var proposals = [];
+    var review = [];
+    inventoryRows.forEach(function(row) {
+      var code = String(row.code || "").trim();
+      if (!code) return; // Sin código = solo control interno; nunca genera pedido.
+      if (duplicateCodes.has(code.toLowerCase())) { review.push((row.name || "Fila sin nombre") + ": código repetido " + code); return; }
+      var shortage = inventoryShortage(row);
+      if (shortage === null) { review.push((row.name || code) + ": falta configurar la cantidad objetivo"); return; }
+      if (shortage <= 0) return;
+      var linked = inventoryLinkedProduct(row.linkedProduct || "");
+      if (!linked) { review.push((row.name || code) + ": falta vincularlo con un producto del catálogo"); return; }
+      if (String(linked.product.code || "").trim().toLowerCase() !== code.toLowerCase()) {
+        review.push((row.name || code) + ": el código no coincide con el producto vinculado");
+        return;
+      }
+      proposals.push({ supplierName: linked.supplier.name, productName: linked.product.name, qty: shortage, code: code });
+    });
+    if (!proposals.length && !review.length) {
+      showAlert("No hay reposiciones sugeridas. Los productos sin código se mantienen como control interno y no generan pedidos.", "Previsualización de inventario");
+      return;
+    }
+    var list = proposals.map(function(item) {
+      return item.supplierName + " · " + item.qty + " × " + item.productName;
+    });
+    if (review.length) list.push("— REVISAR ANTES DE CONTINUAR —");
+    review.forEach(function(item) { list.push("Revisar: " + item); });
+    showModal({
+      title: "Previsualización de reposición",
+      message: proposals.length
+        ? proposals.length + " reposición(es) sugerida(s). Esta vista es solo una simulación: no crea pedidos, no guarda en la nube y no envía mensajes ni correos."
+        : "No hay reposiciones listas. Revisa los datos pendientes. No se ha creado ni enviado ningún pedido.",
+      list: list,
+      primaryText: "Cerrar"
+    });
+  }
+  document.getElementById("inventoryPreviewBtn").addEventListener("click", previewInventoryReplenishment);
   document.getElementById("inventoryImportBtn").addEventListener("click",function(){document.getElementById("inventoryExcelInput").click();});
   document.getElementById("inventoryExcelInput").addEventListener("change",function(e){var file=e.target.files&&e.target.files[0];e.target.value="";if(!file)return;if(!window.XLSX){showAlert("No se pudo cargar el lector de Excel.");return;}var reader=new FileReader();reader.onload=function(evt){try{var wb=XLSX.read(evt.target.result,{type:"array"});var name=wb.SheetNames[0];if(name)parseInventoryRows(XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:"",blankrows:false}));}catch(err){showAlert("No se pudo leer el Excel.");}};reader.readAsArrayBuffer(file);});
   document.getElementById("inventoryAddBtn").addEventListener("click",function(){inventoryRows.push({id:uid(),code:"",name:"",stock:0,target:null,linkedProduct:""});renderInventory();});
