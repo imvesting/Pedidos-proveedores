@@ -3095,7 +3095,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
           '<div class="product-qty-area">' +
             '<div class="stepper">' +
               '<button type="button" class="dec" aria-label="Restar">−</button>' +
-              '<input type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" spellcheck="false" data-qty-input="1" value="' + qty + '">' +
+              '<input type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" autocomplete="off" autocapitalize="off" spellcheck="false" data-qty-input="1" value="' + qty + '">' +
               '<button type="button" class="inc" aria-label="Sumar">+</button>' +
             '</div>' +
             (product.unit ? '<span class="qty-unit">' + escapeHtml(formatUnit(product.unit, qty)) + '</span>' : '') +
@@ -3162,22 +3162,8 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     });
   }
 
-  // Protección de cantidad en móviles: solo dígitos y sin menú de copiar/pegar.
-  var productListEl = document.getElementById("productList");
-  ["copy", "cut", "paste", "contextmenu"].forEach(function(eventName) {
-    productListEl.addEventListener(eventName, function(e) {
-      if (e.target && e.target.matches("input[data-qty-input]")) { e.preventDefault(); e.stopPropagation(); }
-    });
-  });
-  productListEl.addEventListener("beforeinput", function(e) {
-    if (!e.target || !e.target.matches("input[data-qty-input]")) return;
-    if (e.inputType && e.inputType.indexOf("insert") === 0 && e.data && /[^0-9]/.test(e.data)) e.preventDefault();
-  });
-  productListEl.addEventListener("input", function(e) {
-    if (!e.target || !e.target.matches("input[data-qty-input]")) return;
-    var clean = e.target.value.replace(/[^0-9]/g, "");
-    if (e.target.value !== clean) e.target.value = clean;
-  });
+  // La cantidad usa el control numérico nativo, igual que Inventario.
+  // El navegador aplica min=0 y step=1; el evento change guarda la cantidad.
 
   // Cambios delegados para los campos de cantidad.
   document.getElementById("productList").addEventListener("change", function(e) {
