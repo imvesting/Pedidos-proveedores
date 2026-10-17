@@ -335,6 +335,8 @@
   .product-unit { display:block; color: var(--ink-muted); font-size: .76rem; line-height: 1.15; margin-top: 2px; white-space: normal; }
   .product-name-stack { min-width:0; display:flex; flex-direction:column; }
   .qty-unit { color: var(--ink-muted); font-size: .72rem; max-width: 62px; line-height:1.1; text-align:center; padding: 0 3px; }
+  .order-qty-input { display:block; width:min(100%,76px); min-width:0; margin:0; padding:7px 2px; text-align:center; box-sizing:border-box; font-size:16px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); touch-action:manipulation; }
+  .order-qty-input:focus { outline:2px solid var(--accent); outline-offset:1px; }
   .stepper input { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   .product-name { font-weight: 500; font-size: 0.98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rename-input { flex: 1; min-width: 0; padding: 7px 8px; font-size: 0.95rem; }
@@ -3093,11 +3095,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
         '<div class="product-row' + (qty > 0 ? " has-qty" : "") + '" data-product-id="' + product.id + '">' +
           '<div class="product-name-wrap"><div class="product-name-stack"><span class="product-name">' + escapeHtml(product.name) + '</span></div></div>' +
           '<div class="product-qty-area">' +
-            '<div class="stepper">' +
-              '<button type="button" class="dec" aria-label="Restar">−</button>' +
-              '<input type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1" autocomplete="off" autocapitalize="off" spellcheck="false" data-qty-input="1" value="' + qty + '">' +
-              '<button type="button" class="inc" aria-label="Sumar">+</button>' +
-            '</div>' +
+            '<input class="order-qty-input" type="number" inputmode="decimal" min="0" step="any" autocomplete="off" autocapitalize="off" spellcheck="false" data-qty-input="1" aria-label="Cantidad de ' + escapeHtml(product.name) + '" value="' + qty + '">' +
             (product.unit ? '<span class="qty-unit">' + escapeHtml(formatUnit(product.unit, qty)) + '</span>' : '') +
           '</div>' +
           '<button type="button" class="row-icon-btn kebab" aria-label="Más opciones">⋯</button>' +
@@ -3162,8 +3160,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     });
   }
 
-  // La cantidad usa el control numérico nativo, igual que Inventario.
-  // El navegador aplica min=0 y step=1; el evento change guarda la cantidad.
+  // Campo numérico nativo: admite decimales y entrada normal del teclado móvil.
 
   // Cambios delegados para los campos de cantidad.
   document.getElementById("productList").addEventListener("change", function(e) {
@@ -3173,11 +3170,30 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     var supplier = getActiveSupplier();
     if (!supplier) return;
     var productId = row.getAttribute("data-product-id");
-    var v = parseInt(e.target.value, 10);
-    if (isNaN(v) || v < 0) v = 0;
+    var raw = String(e.target.value || "").replace(",", ".");
+    var v = raw.trim() === "" ? 0 : Number(raw);
+    if (!Number.isFinite(v) || v < 0) v = 0;
     setQty(supplier, productId, v);
+    e.target.value = v > 0 ? String(v) : "0";
   });
 
+  document.getElementById("productList").addEventListener("keydown", function(e) {
+    if (!e.target.matches || !e.target.matches("input[data-qty-input]") || e.key !== "Enter") return;
+    e.preventDefault();
+    var current = e.target;
+    var row = current.closest(".product-row");
+    var supplier = getActiveSupplier();
+    if (row && supplier) {
+      var raw = String(current.value || "").replace(",", ".");
+      var qty = raw.trim() === "" ? 0 : Number(raw);
+      if (!Number.isFinite(qty) || qty < 0) qty = 0;
+      setQty(supplier, row.getAttribute("data-product-id"), qty);
+      current.value = qty > 0 ? String(qty) : "0";
+    }
+    var fields = Array.from(document.querySelectorAll('#productList input[data-qty-input]'));
+    var next = fields[fields.indexOf(current) + 1];
+    if (next) { next.focus(); next.select(); }
+  });
   document.getElementById("productList").addEventListener("focusin", function(e) {
     if (e.target.matches && e.target.matches("input[data-qty-input]")) { e.target.focus({ preventScroll: true }); }
   });
