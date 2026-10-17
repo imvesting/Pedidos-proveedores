@@ -1197,6 +1197,10 @@ main {
   .app-bottom:hover::before,.app-bottom:focus-within::before,.app-bottom.expanded::before{content:"‹";justify-content:flex-end;padding-right:12px}
   .app-bottom .nav-btn#navMenu{display:none!important}
 }
+/* Info es una utilidad interna, nunca debe mostrarse en móvil ni tablet */
+.app-bottom #navMenu,
+#navMenu,
+button#navMenu{display:none!important;visibility:hidden!important;pointer-events:none!important;width:0!important;height:0!important;min-width:0!important;min-height:0!important;padding:0!important;margin:0!important;border:0!important;overflow:hidden!important;}
 @media(max-width:999px){
   body{padding-left:0!important}
   .app-bottom{position:fixed!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;transform:none!important;width:100%!important;max-width:560px!important;height:auto!important;max-height:none!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;flex-direction:row!important;align-items:stretch!important;justify-content:stretch!important;gap:4px!important;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px))!important;box-sizing:border-box!important;overflow:visible!important}
