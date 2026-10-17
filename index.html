@@ -3672,7 +3672,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
   // Inventario de pruebas: los datos se guardan solo en este dispositivo.
   var inventoryRows = [];
   function inventoryKey() { return "pedidos_inventory_local_" + (currentAuthUserId || "no_user"); }
-  function loadInventoryLocal() { try { var raw = currentAuthUserId ? localStorage.getItem(inventoryKey()) : null; inventoryRows = raw ? JSON.parse(raw) : []; if (!Array.isArray(inventoryRows)) inventoryRows = []; } catch(e) { inventoryRows = []; } }
+  function loadInventoryLocal() { try { var raw = currentAuthUserId ? localStorage.getItem(inventoryKey()) : null; inventoryRows = raw ? JSON.parse(raw) : []; if (!Array.isArray(inventoryRows)) inventoryRows = []; inventoryRows.forEach(function(row){if(!String(row.code||"").trim())row.linkedProduct="";}); } catch(e) { inventoryRows = []; } }
   function inventoryShortage(row) { if(row.target===null||row.target===undefined||String(row.target).trim()==="") return null; return Math.max(0, (Number(row.target)||0) - (Number(row.stock)||0)); }
   function inventoryLinkedProduct(key) {
     if(!key)return null;
