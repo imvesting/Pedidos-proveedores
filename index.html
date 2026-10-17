@@ -1838,6 +1838,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
             if (!getActiveSupplier()) setView("suppliers");
             else renderOrder();
           } else if (state.view === "history") renderHistory();
+      else if (state.view === "inventory-orders") renderInventoryOrders();
+          else if (state.view === "inventory-orders") renderInventoryOrders();
           setCloudStatus("☁️ Sincronizado", true);
         })
         .subscribe(function(status) {
@@ -4095,6 +4097,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     if (state.view === "suppliers") renderSuppliers();
     else if (state.view === "order") renderOrder();
     else if (state.view === "history") renderHistory();
+    else if (state.view === "inventory-orders") renderInventoryOrders();
   }
 
   // La aplicación queda bloqueada hasta autenticar al único usuario autorizado.
