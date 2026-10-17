@@ -136,7 +136,7 @@
     .header-logout.visible{display:flex;min-height:25px;padding:4px 7px;font-size:.58rem;}
   }
   @media(max-width:380px){.header-username{max-width:65px}.header-logout{padding:4px 6px;font-size:.56rem}.product-tools-row{gap:6px}.product-import-btn{max-width:45%;font-size:.68rem;padding:8px 7px}}
-  .app-bottom { position:fixed; left:50%; bottom:0; transform:translateX(-50%); width:min(560px,100%); z-index:40; padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)); background:rgba(16,27,58,.98); border-top:1px solid rgba(255,255,255,.08); display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+  .app-bottom { position:fixed; left:50%; bottom:0; transform:translateX(-50%); width:min(560px,100%); z-index:40; padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)); background:rgba(16,27,58,.98); border-top:1px solid rgba(255,255,255,.08); display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; }
   .nav-btn { border:0; background:transparent; color:#AAB7D2; border-radius:14px; min-height:50px; font-family:inherit; font-weight:700; font-size:.72rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; }
   .nav-btn .nav-icon { font-size:1.15rem; line-height:1; }
   .nav-btn.active { background:linear-gradient(135deg,#6545FF,#3C66FF); color:#fff; box-shadow:0 8px 20px rgba(50,76,220,.32); }
@@ -1260,6 +1260,17 @@ main {
     </section>
 
 
+    <!-- VISTA: INVENTARIO -->
+    <section class="view" id="view-inventory">
+      <div class="hero-copy"><h2>Inventario</h2><p>Importa el conteo del día, finalízalo y consulta o descarga el historial en Excel.</p></div>
+      <div class="view-toolbar" id="inventoryFilters"><button class="btn-secondary inventory-filter active" data-inventory-filter="pending" type="button">Pendientes</button><button class="btn-secondary inventory-filter" data-inventory-filter="sent" type="button">Enviados</button><button class="btn-secondary inventory-filter" data-inventory-filter="all" type="button">Todos</button></div>
+      <div class="settings-card" style="padding:14px;margin-bottom:12px"><h3 style="margin-top:0">Nuevo inventario</h3><p class="field-hint">Columnas del Excel: Código (opcional), Producto y Cantidad. También puedes agregar filas manualmente.</p>
+      <div class="inventory-actions" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-secondary" id="inventoryImportBtn" type="button">📥 Importar Excel</button><button class="btn-secondary" id="inventoryAddRowBtn" type="button">＋ Agregar fila</button><button class="btn-secondary" id="inventoryTemplateBtn" type="button">Descargar plantilla</button></div>
+      <input id="inventoryExcelInput" type="file" accept=".xlsx,.xls,.csv" style="display:none">
+      <div style="overflow-x:auto;margin-top:12px"><table style="width:100%;border-collapse:collapse;min-width:440px"><thead><tr><th style="text-align:left;padding:8px">Código</th><th style="text-align:left;padding:8px">Producto</th><th style="text-align:left;padding:8px">Cantidad</th><th></th></tr></thead><tbody id="inventoryDraftRows"></tbody></table></div>
+      <div class="inventory-actions" style="display:flex;gap:8px;margin-top:14px"><button class="btn-primary" id="inventoryFinalizeBtn" type="button">Finalizar inventario</button><button class="btn-secondary" id="inventoryClearBtn" type="button">Vaciar</button></div><p class="field-hint" id="inventoryEmailStatus">El correo automático con Excel requiere conectar la función de envío.</p></div>
+      <div id="inventoryHistoryList" class="list"></div><div id="inventoryHistoryEmpty" class="empty-state"><strong>No hay inventarios guardados</strong><p>Importa o agrega el conteo y finaliza el inventario.</p></div>
+    </section>
     <!-- VISTA: PEDIDOS -->
     <section class="view" id="view-history">
       <div class="hero-copy"><h2>Pedidos</h2><p>Continúa tus pedidos pendientes o consulta los que ya enviaste.</p></div>
@@ -1342,6 +1353,7 @@ main {
   <nav class="app-bottom" aria-label="Navegación principal">
     <button class="nav-btn active" id="navSuppliers" type="button"><span class="nav-icon">⌂</span><span>Proveedores</span></button>
     <button class="nav-btn" id="navHistory" type="button"><span class="nav-icon">▤</span><span>Pedidos</span></button>
+    <button class="nav-btn" id="navInventory" type="button"><span class="nav-icon">▦</span><span>Inventario</span></button>
     <button class="nav-btn" id="navMenu" type="button"><span class="nav-icon">ⓘ</span><span>Info</span></button>
   </nav>
 
@@ -1445,6 +1457,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       data.suppliers = localData.suppliers;
       data.orders = localData.orders;
       data.history = Array.isArray(localData.history) ? localData.history : [];
+      data.inventories = Array.isArray(localData.inventories) ? localData.inventories : [];
       data.deletedOrderIds = Array.isArray(localData.deletedOrderIds) ? localData.deletedOrderIds.map(String) : [];
       appStarted = true;
       document.body.classList.remove("app-locked");
@@ -1681,7 +1694,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   // Los datos locales no se cargan hasta que el usuario haya iniciado sesión.
   // Así el contenido de la aplicación no se inicializa para visitantes no autenticados.
-  var data = { suppliers: [], orders: {}, history: [], deletedOrderIds: [] };
+  var data = { suppliers: [], orders: {}, history: [], inventories: [], deletedOrderIds: [] };
 
   function saveLocalOrders() {
     try {
@@ -1690,6 +1703,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         suppliers: data.suppliers,
         orders: data.orders,
         history: data.history,
+        inventories: data.inventories || [],
         deletedOrderIds: data.deletedOrderIds || []
       }));
     } catch (e) {
@@ -1747,7 +1761,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if (!currentAuthUserId) throw new Error("No se identificó la cuenta activa");
       var payload = {
         user_id: currentAuthUserId,
-        data: { suppliers: data.suppliers, orders: data.orders, history: data.history, pendingOrders: data.pendingOrders || {}, deletedOrderIds: data.deletedOrderIds || [] },
+        data: { suppliers: data.suppliers, orders: data.orders, history: data.history, inventories: data.inventories || [], pendingOrders: data.pendingOrders || {}, deletedOrderIds: data.deletedOrderIds || [] },
         updated_at: new Date().toISOString()
       };
       var result = await withTimeout(
@@ -2043,6 +2057,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     var h = document.getElementById("navHistory");
     s.classList.toggle("active", state.view === "suppliers" || state.view === "order" || state.view === "supplier-form");
     h.classList.toggle("active", state.view === "history");
+    var ni=document.getElementById("navInventory"); if(ni)ni.classList.toggle("active",state.view==="inventory");
     document.getElementById("navMenu").classList.remove("active");
   }
 
@@ -2091,6 +2106,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   document.getElementById("navSuppliers").addEventListener("click", function(){ setView("suppliers"); });
   document.getElementById("navHistory").addEventListener("click", function(){ setView("history"); });
+  document.getElementById("navInventory").addEventListener("click", function(){ setView("inventory"); renderInventoryDraft(); renderInventoryHistory(); });
   document.getElementById("backToSuppliers").addEventListener("click", function(){
     state.activeSupplierId = null;
     state.editingSupplierId = null;
@@ -2729,6 +2745,24 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       }
     });
   }
+
+
+var inventoryDraft=[],inventoryFilter="pending";
+function invDate(d){return new Date(d||Date.now()).toLocaleDateString("es-CO",{year:"numeric",month:"2-digit",day:"2-digit"});}
+function invRows(record){return [["Código","Producto","Cantidad"],...(record.rows||[]).map(r=>[r.code||"",r.name||"",Number(r.qty)||0])];}
+function invDownload(record){if(!window.XLSX){showAlert("No se pudo cargar Excel.");return;}var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(invRows(record)),"Inventario");XLSX.writeFile(wb,"Inventario_"+record.dateKey+".xlsx");}
+function renderInventoryDraft(){var body=document.getElementById("inventoryDraftRows");if(!body)return;body.innerHTML=inventoryDraft.map((r,i)=>'<tr><td><input data-if="code" data-i="'+i+'" value="'+escapeHtml(r.code||"")+'" placeholder="Opcional" style="width:100px"></td><td><input data-if="name" data-i="'+i+'" value="'+escapeHtml(r.name||"")+'" placeholder="Producto" style="width:100%"></td><td><input data-if="qty" data-i="'+i+'" type="number" min="0" value="'+escapeHtml(r.qty==null?"":r.qty)+'" style="width:80px"></td><td><button type="button" class="btn-danger-text" data-ir="'+i+'">×</button></td></tr>').join("");}
+function renderInventoryHistory(){var host=document.getElementById("inventoryHistoryList"),empty=document.getElementById("inventoryHistoryEmpty");if(!host)return;var rows=(data.inventories||[]).filter(r=>inventoryFilter==="all"||(inventoryFilter==="sent"?r.status==="sent":r.status!=="sent")).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));empty.style.display=rows.length?"none":"block";host.innerHTML=rows.map(r=>'<article class="settings-card" style="padding:14px;margin-bottom:10px"><strong>Inventario '+escapeHtml(r.dateLabel||invDate(r.createdAt))+'</strong><p class="history-meta">'+r.rows.length+' productos · '+(r.status==="sent"?"Enviado":"Pendiente")+'</p><div class="inventory-actions" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-secondary" data-iv="'+r.id+'">Ver</button><button class="btn-secondary" data-idl="'+r.id+'">Descargar Excel</button><button class="btn-secondary" data-irs="'+r.id+'">Reenviar por correo</button></div></article>').join("");}
+document.getElementById("inventoryImportBtn").addEventListener("click",()=>document.getElementById("inventoryExcelInput").click());
+document.getElementById("inventoryExcelInput").addEventListener("change",e=>{var f=e.target.files&&e.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=ev=>{try{var wb=XLSX.read(ev.target.result,{type:"array"}),arr=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});if(arr.length&&arr[0].some(c=>/producto|nombre|cantidad|c[oó]digo/i.test(String(c))))arr.shift();inventoryDraft=arr.filter(r=>r.some(c=>String(c).trim())).map(r=>({code:String(r[0]||""),name:String(r[1]||""),qty:r[2]===""?"":Number(r[2])||0}));renderInventoryDraft();document.getElementById("inventoryEmailStatus").textContent="Importadas "+inventoryDraft.length+" filas. Revisa antes de finalizar.";}catch(err){showAlert("No se pudo leer el Excel. Usa columnas Código, Producto y Cantidad.");}};rd.readAsArrayBuffer(f);e.target.value="";});
+document.getElementById("inventoryAddRowBtn").addEventListener("click",()=>{inventoryDraft.push({code:"",name:"",qty:""});renderInventoryDraft();});
+document.getElementById("inventoryClearBtn").addEventListener("click",()=>{inventoryDraft=[];renderInventoryDraft();});
+document.getElementById("inventoryTemplateBtn").addEventListener("click",()=>invDownload({dateKey:"plantilla",rows:[{code:"",name:"",qty:0}]}));
+document.getElementById("inventoryDraftRows").addEventListener("input",e=>{var f=e.target.getAttribute("data-if"),i=Number(e.target.getAttribute("data-i"));if(f&&inventoryDraft[i])inventoryDraft[i][f]=f==="qty"?(e.target.value===""?"":Math.max(0,Number(e.target.value)||0)):e.target.value;});
+document.getElementById("inventoryDraftRows").addEventListener("click",e=>{var b=e.target.closest("[data-ir]");if(b){inventoryDraft.splice(Number(b.getAttribute("data-ir")),1);renderInventoryDraft();}});
+document.getElementById("inventoryFilters").addEventListener("click",e=>{var b=e.target.closest("[data-inventory-filter]");if(!b)return;inventoryFilter=b.getAttribute("data-inventory-filter");document.querySelectorAll(".inventory-filter").forEach(x=>x.classList.toggle("active",x===b));renderInventoryHistory();});
+document.getElementById("inventoryFinalizeBtn").addEventListener("click",()=>{var rows=inventoryDraft.map(r=>({code:String(r.code||"").trim(),name:String(r.name||"").trim(),qty:Number(r.qty)}));if(!rows.length||rows.some(r=>!r.name||!Number.isFinite(r.qty)||r.qty<0)){showAlert("Agrega productos con nombre y cantidad válida antes de finalizar.");return;}var now=new Date(),record={id:uid(),dateKey:now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-"+String(now.getDate()).padStart(2,"0"),dateLabel:invDate(now),createdAt:now.toISOString(),status:"pending",rows:rows};data.inventories=data.inventories||[];data.inventories.unshift(record);inventoryDraft=[];saveData();renderInventoryDraft();renderInventoryHistory();document.getElementById("inventoryEmailStatus").textContent="Inventario guardado. El envío automático requiere conectar la función de correo con adjunto Excel.";showAlert("El inventario se guardó en el historial. Puedes descargarlo en Excel. El correo automático aún no está conectado.","Inventario guardado");});
+document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var b=e.target.closest("button");if(!b)return;var id=b.getAttribute("data-iv")||b.getAttribute("data-idl")||b.getAttribute("data-irs"),r=(data.inventories||[]).find(x=>x.id===id);if(!r)return;if(b.hasAttribute("data-idl")){invDownload(r);return;}if(b.hasAttribute("data-irs")){showAlert("El inventario está guardado, pero para reenviarlo por correo debemos conectar el servicio que adjunta el Excel.");return;}showModal({title:"Inventario "+r.dateLabel,message:"Productos: "+r.rows.length,list:r.rows.slice(0,80).map(x=>(x.code?x.code+" · ":"")+x.name+" — "+x.qty),primaryText:"Descargar Excel",onPrimary:()=>invDownload(r)});});
 
   function renderHistory() {
     var list = document.getElementById("historyList");
