@@ -2180,7 +2180,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   document.getElementById("navSuppliers").addEventListener("click", function(){ setView("suppliers"); });
   document.getElementById("navHistory").addEventListener("click", function(){ setView("history"); });
-  document.getElementById("navInventoryOrders").addEventListener("click", function(){ setView("inventory-orders"); renderInventoryOrders(); });
+  document.getElementById("navInventoryOrders").addEventListener("click", function(){ if(!inventoryRows.length)loadInventoryLocal(); setView("inventory-orders"); renderInventoryOrders(); });
   document.getElementById("backToSuppliers").addEventListener("click", function(){
     state.activeSupplierId = null;
     state.editingSupplierId = null;
@@ -3812,7 +3812,6 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     }).join("");
   }
   function generateInventoryOrders() {
-    loadInventoryLocal();
     var next=data.inventoryOrders||{}, duplicateCodes=new Set(), desired={}, review=[];
     inventoryRows.forEach(function(row){
       var code=String(row.code||"").trim().toLowerCase();
@@ -3847,6 +3846,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if(!next[sid])next[sid]={};
       Object.keys(desired[sid]).forEach(function(pid){if(!next[sid][pid])next[sid][pid]=desired[sid][pid];});
     });
+    try{if(currentAuthUserId)localStorage.setItem(inventoryKey(),JSON.stringify(inventoryRows));}catch(e){}
     data.inventoryOrders=next;saveData();renderInventoryOrders();
     var msg="Se actualizaron las propuestas por inventario. Los pedidos manuales no se modificaron. No se envió ningún mensaje ni correo.";
     if(review.length)msg+=" Filas para revisar: "+review.length+".";
