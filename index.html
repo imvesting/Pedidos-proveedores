@@ -1177,6 +1177,11 @@ main {
     .inventory-draft-table .inventory-qty-cell input { padding:7px 0; }
   }
 
+
+/* Gestión de inventarios: filtros compactos alineados junto a Todos */
+#inventoryFilters{max-width:100%;box-sizing:border-box;}
+#inventoryFilters input[type="date"]{width:118px;min-width:118px;box-sizing:border-box;}
+@media(max-width:650px){#inventoryFilters{flex-wrap:wrap!important;}#inventoryFilters>div{margin-left:0!important;width:100%;justify-content:flex-end;flex-wrap:wrap;}#inventoryFilters input[type="date"]{width:118px;min-width:118px;}}
 </style>
 
 </head>
