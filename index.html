@@ -3297,6 +3297,10 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
           saveData();
         }
       }
+      // Retirar primero los campos de edición para que renderOrder no active
+      // su protección contra reconstrucciones mientras se está escribiendo.
+      var editFields = wrap.querySelector(".rename-fields");
+      if (editFields) editFields.remove();
       renderOrder();
     }
 
