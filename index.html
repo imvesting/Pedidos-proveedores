@@ -387,8 +387,10 @@
   .field { margin-bottom: 16px; }
   .field label { display: block; font-size: 0.85rem; color: var(--ink-muted); margin-bottom: 6px; font-weight: 600; }
 
-  .add-inline { display: flex; gap: 8px; margin-bottom: 16px; }
-  .add-inline input { flex: 1; }
+  .add-inline { display: flex; flex-wrap:wrap; gap: 8px; margin-bottom: 16px; }
+  .add-inline input { flex: 1 1 180px; min-width:0; }
+  #newProductUnitInput { flex: 1 1 110px; min-width:90px; }
+  .add-inline button { min-height:44px; }
   .btn-secondary {
     background: var(--surface);
     border: 1px solid var(--line);
@@ -1298,7 +1300,8 @@ button#navMenu{display:none!important;visibility:hidden!important;pointer-events
         <button type="button" id="clearOrderBtn">Vaciar cantidades</button>
       </div>
       <div class="add-inline">
-        <input class="text-input" id="newProductInput" type="text" placeholder="Agregar producto de este proveedor…" autocomplete="off">
+        <input class="text-input" id="newProductInput" type="text" placeholder="Nombre del producto…" autocomplete="off">
+        <input class="text-input" id="newProductUnitInput" type="text" placeholder="Unidad (ej. cajas)" autocomplete="off" aria-label="Unidad de medida">
         <button type="button" class="btn-secondary" id="addProductBtn">Agregar</button>
       </div>
       <div class="product-tools-row">
@@ -1705,7 +1708,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       phone: normalizeColombianPhone(s.phone || ""),
       logo: s.logo || null,
       products: Array.isArray(s.products) ? s.products.map(function(p) {
-        return { id: p.id || uid(), name: p.name || "", unit: p.unit || "" };
+        return { id: p.id || uid(), name: p.name || "", unit: normalizeUnit(p.unit || "") };
       }) : []
     };
   }
@@ -1949,6 +1952,9 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         await cloudSave();
       }
 
+      // Migración segura: quitar el sufijo "de" de unidades antiguas y persistirlo en Supabase.
+      data.suppliers = (data.suppliers || []).map(normalizeSupplier);
+      await cloudSave();
       render();
       startRealtime();
       startCloudRefreshFallback();
@@ -3352,6 +3358,12 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
       addProductFromInput();
     }
   });
+  document.getElementById("newProductUnitInput").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addProductFromInput();
+    }
+  });
 
   function addProductFromInput() {
     var supplier = getActiveSupplier();
@@ -3360,14 +3372,17 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
       return;
     }
     var input = document.getElementById("newProductInput");
+    var unitInput = document.getElementById("newProductUnitInput");
     var name = input.value.trim();
+    var unit = normalizeUnit(unitInput ? unitInput.value : "");
     if (!name) {
       input.focus();
       return;
     }
-    supplier.products.push({ id: uid(), name: name });
+    supplier.products.push({ id: uid(), name: name, unit: unit });
     if (saveData()) {
       input.value = "";
+      if (unitInput) unitInput.value = "";
       renderOrder();
     }
     input.focus();
@@ -3403,8 +3418,8 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
       // La unidad guardada en el producto se incluye siempre en el mensaje de WhatsApp.
       // Para Coca-Cola se conserva la regla especial de pacas cuando no hay otra unidad definida.
       var unit = normalizeUnit(p.unit || "");
-      if (isCocaCola && !unit) unit = "paca de";
-      if (unit) return "• " + qty + " " + formatUnit(unit, qty) + " " + p.name;
+      if (isCocaCola && !unit) unit = "paca";
+      if (unit) return "• " + qty + " " + unit + " de " + p.name;
       return "• " + qty + " " + p.name;
     });
     // Mensaje fijo que aparece antes del detalle del pedido.
@@ -3671,32 +3686,11 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
   }
 
   function normalizeUnit(value) {
-    var unit = cleanExcelCell(value).toLowerCase().replace(/\s+/g, " ");
-    if (!unit) return "";
-    unit = unit.replace(/\s+de$/, "");
-    var aliases = {
-      "caja":"caja de", "cajas":"caja de", "paquete":"paquete de", "paquetes":"paquete de",
-      "kilo":"kilo de", "kilos":"kilo de", "kilogramo":"kilo de", "kilogramos":"kilo de",
-      "botella":"botella de", "botellas":"botella de", "bolsa":"bolsa de", "bolsas":"bolsa de",
-      "lata":"lata de", "latas":"lata de", "bulto":"bulto de", "bultos":"bulto de",
-      "litro":"litro de", "litros":"litro de", "unidad":"unidad de", "unidades":"unidad de",
-      "paca":"paca de", "pacas":"paca de", "docena":"docena de", "docenas":"docena de"
-    };
-    return aliases[unit] || (unit.endsWith(" de") ? unit : unit + " de");
+    // La unidad se guarda limpia; "de" se agrega únicamente al construir el mensaje.
+    return cleanExcelCell(value).replace(/\s+de\s*$/i, "").replace(/\s+/g, " ").trim();
   }
-  function formatUnit(unitValue, qty) {
-    var unit = normalizeUnit(unitValue);
-    if (!unit) return "";
-    if (Number(qty) === 1) return unit;
-    var base = unit.replace(/ de$/, "");
-    var words = base.split(" ");
-    var last = words[words.length - 1];
-    if (!/[aeiouáéíóú]s$/i.test(last)) {
-      if (/z$/i.test(last)) last = last.slice(0, -1) + "ces";
-      else if (/s$/i.test(last)) {} else last += "s";
-    }
-    words[words.length - 1] = last;
-    return words.join(" ") + " de";
+  function formatUnit(unitValue) {
+    return normalizeUnit(unitValue);
   }
 
   function cleanExcelCell(value) {
