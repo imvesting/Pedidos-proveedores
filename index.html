@@ -3461,7 +3461,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
       return {
         nombre: String(p.name || ""),
         cantidad: Number(orderSnapshot[p.id]) || 0,
-        unidad: String(p.unit || "")
+        unidad: normalizeUnit(p.unit || "")
       };
     }).filter(function(p) { return p.nombre && p.cantidad > 0; });
     if (!products.length) return;
