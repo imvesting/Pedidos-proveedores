@@ -1881,6 +1881,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
           table: CLOUD_TABLE,
           filter: "user_id=eq." + currentAuthUserId
         }, function(payload) {
+          // No reemplazar los datos locales mientras hay un formulario de renombrado abierto.
+          if (document.querySelector(".rename-input, .rename-unit-input")) return;
           var remote = payload && payload.new && payload.new.data;
           if (!remote || !Array.isArray(remote.suppliers)) return;
           data.suppliers = remote.suppliers.map(normalizeSupplier);
@@ -1971,6 +1973,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
 
   async function refreshCloud() {
     if (!cloudReady || !supabaseClient || cloudBusy) return;
+    // Evitar que la sincronización periódica sustituya el producto que se está editando.
+    if (document.querySelector(".rename-input, .rename-unit-input")) return;
     try {
       var remote = await cloudLoad();
       if (!remote || !Array.isArray(remote.suppliers)) return;
