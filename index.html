@@ -340,6 +340,9 @@
   .stepper input { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   .product-name { font-weight: 500; font-size: 0.98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rename-input { flex: 1; min-width: 0; padding: 7px 8px; font-size: 0.95rem; }
+  .rename-fields { display:flex; flex-direction:column; gap:7px; width:100%; min-width:0; }
+  .rename-actions { display:flex; gap:7px; }
+  .rename-actions button { min-height:38px; padding:7px 12px; }
   .row-icon-btn {
     background: none; border: none; color: var(--ink-muted); cursor: pointer;
     width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -3083,6 +3086,9 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
 
   function renderOrder() {
     var list = document.getElementById("productList");
+    // No reconstruir el listado mientras se edita el nombre o la unidad.
+    // Las actualizaciones en tiempo real no deben borrar lo que el usuario escribe.
+    if (list && list.querySelector(".rename-input, .rename-unit-input")) return;
     var empty = document.getElementById("productsEmpty");
     var supplier = getActiveSupplier();
 
@@ -3260,37 +3266,48 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
 
   function enableRename(row, supplier, product) {
     var wrap = row.querySelector(".product-name-wrap");
-    wrap.innerHTML = '<input type="text" class="text-input rename-input" value="' + escapeHtml(product.name) + '">';
-    var input = wrap.querySelector("input");
+    wrap.innerHTML =
+      '<div class="rename-fields">' +
+        '<input type="text" class="text-input rename-input" aria-label="Nombre del producto" placeholder="Nombre del producto" value="' + escapeHtml(product.name) + '">' +
+        '<input type="text" class="text-input rename-unit-input" aria-label="Unidad de medida" placeholder="Unidad (ej. cajas)" value="' + escapeHtml(normalizeUnit(product.unit || "")) + '">' +
+        '<div class="rename-actions">' +
+          '<button type="button" class="btn-secondary rename-save">Guardar</button>' +
+          '<button type="button" class="btn-secondary rename-cancel">Cancelar</button>' +
+        '</div>' +
+      '</div>';
+    var input = wrap.querySelector(".rename-input");
+    var unitInput = wrap.querySelector(".rename-unit-input");
+    var finished = false;
     input.focus();
     input.select();
-    var committed = false;
-    function commit() {
-      if (committed) return;
-      committed = true;
-      var v = input.value.trim();
-      if (v && v !== product.name) {
-        product.name = v;
-        saveData();
+
+    function finish(save) {
+      if (finished) return;
+      finished = true;
+      if (save) {
+        var name = input.value.trim();
+        var unit = normalizeUnit(unitInput.value);
+        if (name) {
+          product.name = name;
+          product.unit = unit;
+          saveData();
+        }
       }
       renderOrder();
     }
-    // No guardar al perder el foco: los repintados de la app podían cerrar
-    // el campo antes de que el usuario terminara de escribir.
-    input.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        commit();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        committed = true;
-        renderOrder();
-      }
-    });
-    input.addEventListener("change", commit);
-    input.addEventListener("blur", function() {
-      // El cambio se confirma al terminar de editar, sin temporizador.
-      commit();
+
+    wrap.querySelector(".rename-save").addEventListener("click", function() { finish(true); });
+    wrap.querySelector(".rename-cancel").addEventListener("click", function() { finish(false); });
+    [input, unitInput].forEach(function(field) {
+      field.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          finish(true);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          finish(false);
+        }
+      });
     });
   }
 
