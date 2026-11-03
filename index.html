@@ -3237,7 +3237,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     if (/coca[- ]?cola/i.test(String(supplier.name || ""))) {
       var cocaColaUnitsUpdated = false;
       supplier.products.forEach(function(product) {
-        if (!normalizeUnit(product.unit || "")) {
+        if (normalizeUnit(product.unit || "").toLowerCase() !== "paca") {
           product.unit = "paca";
           cocaColaUnitsUpdated = true;
         }
@@ -3587,11 +3587,9 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
   // ---------- Compartir por WhatsApp ----------
   function buildShareUrl(supplier, items) {
     var order = data.orders[supplier.id] || {};
-    var isCocaCola = /coca[- ]?cola/i.test(String(supplier.name || ""));
     var lines = items.map(function(p) {
       var qty = Number(order[p.id]) || 0;
-      // La unidad guardada en el producto se incluye siempre en el mensaje de WhatsApp.
-      // Para Coca-Cola se conserva la regla especial de pacas cuando no hay otra unidad definida.
+      // WhatsApp usa la unidad guardada en el producto, con singular/plural cuando corresponde.
       var unit = normalizeUnit(p.unit || "");
       if (unit) return "• " + qty + " " + formatUnit(unit, qty) + " de " + p.name;
       return "• " + qty + " " + p.name;
