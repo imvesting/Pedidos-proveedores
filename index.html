@@ -2235,15 +2235,21 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     if (result.error) throw result.error;
 
     var session = result.data && result.data.session;
-    if (session && session.access_token) return session;
+    // En móviles, el navegador puede quedar suspendido durante horas y no
+    // ejecutar a tiempo la renovación automática. Renovar antes de usar un
+    // token vencido o próximo a vencer.
+    var expiresAt = session && Number(session.expires_at || 0);
+    var needsRefresh = !session || !session.access_token ||
+      !expiresAt || expiresAt <= Math.floor(Date.now() / 1000) + 90;
 
-    // Intento de recuperación si la sesión no está disponible todavía.
-    var refreshed = await supabaseClient.auth.refreshSession();
-    if (refreshed.error) throw refreshed.error;
+    if (needsRefresh) {
+      var refreshed = await supabaseClient.auth.refreshSession();
+      if (refreshed.error) throw refreshed.error;
+      session = refreshed.data && refreshed.data.session;
+    }
 
-    session = refreshed.data && refreshed.data.session;
     if (!session || !session.access_token) {
-      throw new Error("La sesión de administrador no está disponible. Vuelve a ingresar.");
+      throw new Error("La sesión ha vencido. Vuelve a iniciar sesión para enviar el pedido.");
     }
     return session;
   }
@@ -3492,8 +3498,11 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     if (!products.length) return;
 
     try {
+      // Renovar/verificar la sesión justo antes de llamar a la función de correo.
+      var activeSession = await getCurrentSession();
       var result = await supabaseClient.functions.invoke("send-order-copy", {
-        body: { proveedor: String(supplier.name || "Proveedor"), productos: products }
+        body: { proveedor: String(supplier.name || "Proveedor"), productos: products },
+        headers: { Authorization: "Bearer " + activeSession.access_token }
       });
       if (result.error) throw result.error;
       if (!result.data || result.data.success !== true) {
