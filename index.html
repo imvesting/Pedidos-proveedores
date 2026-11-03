@@ -3157,8 +3157,11 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     var isCocaCola = /coca[- ]?cola/i.test(String((supplier && supplier.name) || item.supplierName || ""));
     (item.items || []).forEach(function(p){
       var qty = Number(p.qty) || 0;
-      lines.push(isCocaCola
-        ? (qty + " " + (qty === 1 ? "paca" : "pacas") + " de " + p.name)
+      // Los pedidos antiguos pueden no tener unidad guardada; se conserva compatibilidad.
+      var unit = normalizeUnit(p.unit || (isCocaCola ? "paca" : ""));
+      var unitLabel = formatUnit(unit, qty);
+      lines.push(unitLabel
+        ? (qty + " " + unitLabel + " de " + p.name)
         : (qty + " " + p.name));
     });
     var encoded = encodeURIComponent(lines.join("\n"));
@@ -3228,6 +3231,19 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     }
 
     var order = data.orders[supplier.id] || {};
+
+    // Asignar y guardar la unidad "paca" en los productos del proveedor Coca-Cola
+    // que todavía no tengan una unidad definida. No se modifican sus nombres.
+    if (/coca[- ]?cola/i.test(String(supplier.name || ""))) {
+      var cocaColaUnitsUpdated = false;
+      supplier.products.forEach(function(product) {
+        if (!normalizeUnit(product.unit || "")) {
+          product.unit = "paca";
+          cocaColaUnitsUpdated = true;
+        }
+      });
+      if (cocaColaUnitsUpdated) saveData();
+    }
 
     if (supplier.products.length === 0) {
       list.innerHTML = "";
@@ -3497,7 +3513,16 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     rebuildPendingOrders();
     saveLocalOrders();
     cloudSave();
-    if (!preserveOrderInput) renderOrder();
+    if (preserveOrderInput) {
+      var qtyRow = Array.from(document.querySelectorAll(".product-row")).find(function(row) {
+        return row.getAttribute("data-product-id") === String(productId);
+      });
+      var qtyProduct = supplier.products.find(function(product) { return String(product.id) === String(productId); });
+      var qtyUnitLabel = qtyRow && qtyRow.querySelector(".qty-unit");
+      if (qtyUnitLabel && qtyProduct) qtyUnitLabel.textContent = formatUnit(qtyProduct.unit || "", qty);
+    } else {
+      renderOrder();
+    }
     renderHistory();
   }
 
@@ -3568,8 +3593,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
       // La unidad guardada en el producto se incluye siempre en el mensaje de WhatsApp.
       // Para Coca-Cola se conserva la regla especial de pacas cuando no hay otra unidad definida.
       var unit = normalizeUnit(p.unit || "");
-      if (isCocaCola && !unit) unit = "paca";
-      if (unit) return "• " + qty + " " + unit + " de " + p.name;
+      if (unit) return "• " + qty + " " + formatUnit(unit, qty) + " de " + p.name;
       return "• " + qty + " " + p.name;
     });
     // Mensaje fijo que aparece antes del detalle del pedido.
@@ -3853,8 +3877,10 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     // La unidad se guarda limpia; "de" se agrega únicamente al construir el mensaje.
     return cleanExcelCell(value).replace(/\s+de\s*$/i, "").replace(/\s+/g, " ").trim();
   }
-  function formatUnit(unitValue) {
-    return normalizeUnit(unitValue);
+  function formatUnit(unitValue, quantity) {
+    var unit = normalizeUnit(unitValue);
+    if (unit.toLowerCase() === "paca") return Number(quantity) === 1 ? "paca" : "pacas";
+    return unit;
   }
 
   function cleanExcelCell(value) {
