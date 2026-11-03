@@ -1291,6 +1291,84 @@ body.app-locked,body.app-locked:not(.auth-checking),body.app-locked:not(.auth-ch
  .auth-field{margin-bottom:10px!important}
 }
 
+
+/* ===== Palermo global palette 2026: interfaz principal ===== */
+:root{
+ --bg:#F7EAD6;
+ --surface:#FFF9F0;
+ --surface-2:#F2DFC4;
+ --ink:#2B170B;
+ --ink-muted:#80664E;
+ --line:#E4C9A4;
+ --accent:#D99A45;
+ --accent-dark:#A96827;
+ --accent-ink:#251507;
+ --accent-soft:#F8E2BE;
+ --blue:#A96827;
+ --green:#287A52;
+ --green-soft:#DDEBDD;
+ --danger:#B94336;
+ --shadow:0 6px 22px rgba(74,43,18,.10);
+}
+#app{background:var(--bg);color:var(--ink)}
+#app header.topbar{
+ background:linear-gradient(115deg,#2B170B 0%,#3A2112 58%,#563018 100%)!important;
+ color:#FFF5E7!important;
+ box-shadow:0 7px 22px rgba(43,23,11,.22)!important;
+}
+#app header.topbar h1{color:#FFF5E7}
+#app .brand-subtitle{color:#EAC99E}
+#app .brand-mark{
+ background:linear-gradient(135deg,#D99A45,#FFD18B)!important;
+ color:#2B170B!important;
+ box-shadow:0 7px 16px rgba(43,23,11,.22)!important;
+}
+#app .btn-primary,#app button.btn-primary{
+ background:linear-gradient(105deg,#D99A45,#FFD18B)!important;
+ color:#2B170B!important;border:1px solid rgba(169,104,39,.24)!important;
+ box-shadow:0 5px 14px rgba(169,104,39,.16);
+}
+#app .btn-primary:active{background:#C78332!important}
+#app .btn-secondary{
+ background:#FFF9F0!important;border-color:#D8B98D!important;color:#563018!important;
+}
+#app .supplier-card,#app .product-row,#app .panel,#app .section-card,
+#app .inventory-card,#app .history-card,#app .modal-card{
+ border-color:var(--line)!important;box-shadow:var(--shadow);
+}
+#app .supplier-badge,#app .qty-chip{
+ background:#F8E2BE!important;color:#8A531F!important;
+}
+#app .product-name::before,#app .supplier-drag-handle{color:#B87932!important}
+#app .search-input:focus,#app .text-input:focus,#app textarea:focus,
+#app input:focus,#app select:focus{
+ outline-color:#D99A45;
+}
+#app .stepper{border-color:#D8B98D;background:#F7EAD6}
+#app .stepper button{color:#563018}
+#app .stepper button:active{background:#E4C9A4}
+#app .app-bottom{
+ background:rgba(255,249,240,.97)!important;
+ border-top:1px solid #E4C9A4!important;
+ box-shadow:0 -8px 24px rgba(43,23,11,.10)!important;
+}
+#app .app-bottom button.active,#app .app-bottom .active{
+ color:#9A5C22!important;
+}
+#app .app-bottom button.active::before,#app .app-bottom .active::before{
+ background:#F8E2BE!important;
+}
+#app .sidebar,#app .side-panel,#app .nav-panel{
+ background:#FFF9F0!important;border-color:#E4C9A4!important;
+}
+#app .nav-item.active,#app .sidebar button.active,#app .side-panel button.active{
+ background:#F8E2BE!important;color:#78451B!important;
+}
+#app .section-title,#app h2,#app h3{color:#3A2112}
+#app .cloud-status.ok{color:#72C49A!important}
+#app .cloud-status.warn{color:#F0B45E!important}
+#app .header-sync{border-color:rgba(255,209,139,.35)}
+
 </style>
 
 </head>
