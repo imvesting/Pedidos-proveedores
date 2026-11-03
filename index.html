@@ -1756,7 +1756,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         return {
           suppliers: (Array.isArray(parsed.suppliers) ? parsed.suppliers : []).map(normalizeSupplier),
           orders: (parsed.orders && typeof parsed.orders === "object") ? parsed.orders : {},
-          history: Array.isArray(parsed.history) ? parsed.history : [],
+          history: normalizeEmailStatuses(Array.isArray(parsed.history) ? parsed.history : []),
+          pendingSyncHistoryIds: Array.isArray(parsed.pendingSyncHistoryIds) ? parsed.pendingSyncHistoryIds.map(String) : [],
           inventories: Array.isArray(parsed.inventories) ? parsed.inventories : [],
           inventoryTemplate: Array.isArray(parsed.inventoryTemplate) ? parsed.inventoryTemplate : [],
           deletedOrderIds: Array.isArray(parsed.deletedOrderIds) ? parsed.deletedOrderIds.map(String) : []
@@ -1767,12 +1768,39 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     } catch (e) {
       console.error("No se pudo leer el almacenamiento local:", e);
     }
-    return { suppliers: [], orders: {}, history: [], deletedOrderIds: [] };
+    return { suppliers: [], orders: {}, history: [], inventories: [], inventoryTemplate: [], deletedOrderIds: [], pendingSyncHistoryIds: [] };
   }
 
   // Los datos locales no se cargan hasta que el usuario haya iniciado sesión.
   // Así el contenido de la aplicación no se inicializa para visitantes no autenticados.
-  var data = { suppliers: [], orders: {}, history: [], inventories: [], inventoryTemplate: [], deletedOrderIds: [] };
+  var data = { suppliers: [], orders: {}, history: [], inventories: [], inventoryTemplate: [], deletedOrderIds: [], pendingSyncHistoryIds: [] };
+
+  function normalizeEmailStatuses(history) {
+    return (Array.isArray(history) ? history : []).map(function(item) {
+      if (item && item.emailStatus === "sending") item.emailStatus = "pending";
+      return item;
+    });
+  }
+
+  function mergeRemoteOrders(remoteOrders) {
+    var merged = Object.assign({}, remoteOrders || {});
+    (data.pendingSyncHistoryIds || []).forEach(function(id) {
+      var localEntry = (data.history || []).find(function(item) { return String(item.id) === String(id); });
+      if (localEntry && localEntry.supplierId) merged[localEntry.supplierId] = data.orders[localEntry.supplierId] || {};
+    });
+    data.orders = merged;
+  }
+
+  function mergeRemoteHistory(remoteHistory, remoteDeletedIds) {
+    var deleted = (Array.isArray(remoteDeletedIds) ? remoteDeletedIds : data.deletedOrderIds || []).map(String);
+    var remote = normalizeEmailStatuses(remoteHistory).filter(function(item) { return item && !deleted.includes(String(item.id)); });
+    var remoteIds = new Set(remote.map(function(item) { return String(item.id); }));
+    var pendingIds = (data.pendingSyncHistoryIds || []).map(String);
+    var localPending = normalizeEmailStatuses(data.history).filter(function(item) {
+      return item && pendingIds.includes(String(item.id)) && !remoteIds.has(String(item.id)) && !deleted.includes(String(item.id));
+    });
+    data.history = localPending.concat(remote);
+  }
 
   function saveLocalOrders() {
     try {
@@ -1781,6 +1809,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         suppliers: data.suppliers,
         orders: data.orders,
         history: data.history,
+        pendingSyncHistoryIds: data.pendingSyncHistoryIds || [],
         inventories: data.inventories || [],
         inventoryTemplate: data.inventoryTemplate || [],
         deletedOrderIds: data.deletedOrderIds || []
@@ -1832,9 +1861,10 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
     if (!cloudReady || !supabaseClient) return false;
     if (cloudBusy) {
       cloudSaveQueued = true;
-      return true;
+      return false;
     }
     cloudBusy = true;
+    var historyIdsInSnapshot = (data.pendingSyncHistoryIds || []).map(String);
     try {
       rebuildPendingOrders();
       if (!currentAuthUserId) throw new Error("No se identificó la cuenta activa");
@@ -1849,6 +1879,11 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         "No se pudo guardar: tiempo de espera agotado"
       );
       if (result.error) throw result.error;
+      var savedIds = new Set((payload.data.history || []).map(function(item) { return String(item.id); }));
+      data.pendingSyncHistoryIds = (data.pendingSyncHistoryIds || []).filter(function(id) {
+        return !historyIdsInSnapshot.includes(String(id)) || !savedIds.has(String(id));
+      });
+      saveLocalOrders();
       setCloudStatus("☁️ Sincronizado", true);
       return true;
     } catch (e) {
@@ -1887,11 +1922,11 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
           if (!remote || !Array.isArray(remote.suppliers)) return;
           data.suppliers = remote.suppliers.map(normalizeSupplier);
           if (Object.prototype.hasOwnProperty.call(remote, "orders") && remote.orders && typeof remote.orders === "object") {
-            data.orders = remote.orders;
+            mergeRemoteOrders(remote.orders);
           }
           if (remote.pendingOrders && typeof remote.pendingOrders === "object") data.pendingOrders = remote.pendingOrders;
           rebuildPendingOrders();
-          if (Array.isArray(remote.history)) data.history = remote.history.filter(function(x){ return !isOrderDeleted(x.id); });
+          if (Array.isArray(remote.history)) mergeRemoteHistory(remote.history, remote.deletedOrderIds);
           if (Array.isArray(remote.inventories)) data.inventories = remote.inventories;
           if (Array.isArray(remote.inventoryTemplate)) data.inventoryTemplate = remote.inventoryTemplate;
           if (Array.isArray(remote.deletedOrderIds)) data.deletedOrderIds = remote.deletedOrderIds.map(String);
@@ -1934,20 +1969,21 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       var localData = loadLocalData();
       data.suppliers = localData.suppliers;
       data.orders = localData.orders;
-      data.history = Array.isArray(localData.history) ? localData.history : [];
+      data.history = normalizeEmailStatuses(Array.isArray(localData.history) ? localData.history : []);
+      data.pendingSyncHistoryIds = Array.isArray(localData.pendingSyncHistoryIds) ? localData.pendingSyncHistoryIds.map(String) : [];
       data.deletedOrderIds = Array.isArray(localData.deletedOrderIds) ? localData.deletedOrderIds.map(String) : [];
 
       var remote = await cloudLoad();
       if (remote && Array.isArray(remote.suppliers)) {
         data.suppliers = remote.suppliers.map(normalizeSupplier);
         if (Object.prototype.hasOwnProperty.call(remote, "orders") && remote.orders && typeof remote.orders === "object") {
-          data.orders = remote.orders;
+          mergeRemoteOrders(remote.orders);
         } else if (Object.keys(data.orders || {}).length > 0 || (data.history && data.history.length)) {
           // Compatibilidad: si la nube fue creada con una versión anterior, conserva
           // los pedidos/historial local y súbelos a la nube.
           await cloudSave();
         }
-        if (Array.isArray(remote.history)) data.history = remote.history.filter(function(x){ return !(Array.isArray(remote.deletedOrderIds) && remote.deletedOrderIds.map(String).includes(String(x.id))); });
+        if (Array.isArray(remote.history)) mergeRemoteHistory(remote.history, remote.deletedOrderIds);
         if (Array.isArray(remote.inventories)) data.inventories = remote.inventories;
         if (Array.isArray(remote.inventoryTemplate)) data.inventoryTemplate = remote.inventoryTemplate;
         if (Array.isArray(remote.deletedOrderIds)) data.deletedOrderIds = remote.deletedOrderIds.map(String);
@@ -1980,12 +2016,12 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       if (!remote || !Array.isArray(remote.suppliers)) return;
       data.suppliers = remote.suppliers.map(normalizeSupplier);
       if (Object.prototype.hasOwnProperty.call(remote, "orders") && remote.orders && typeof remote.orders === "object") {
-        data.orders = remote.orders;
+        mergeRemoteOrders(remote.orders);
       }
       if (remote.pendingOrders && typeof remote.pendingOrders === "object") data.pendingOrders = remote.pendingOrders;
       rebuildPendingOrders();
       if (Array.isArray(remote.deletedOrderIds)) data.deletedOrderIds = remote.deletedOrderIds.map(String);
-      if (Array.isArray(remote.history)) data.history = remote.history.filter(function(x){ return !isOrderDeleted(x.id); });
+      if (Array.isArray(remote.history)) mergeRemoteHistory(remote.history, remote.deletedOrderIds);
       saveLocalOrders();
       if (state.view === "suppliers") renderSuppliers();
       else if (state.view === "order") {
@@ -2926,7 +2962,9 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
         selectBox + '<div class="history-icon">🧾</div><div class="history-info"><div class="history-title">' + escapeHtml(item.supplierName) + '</div>' +
         '<div class="history-meta">' + escapeHtml(item.dateLabel || '') + '</div></div>' +
         '<span class="status-pill">Enviado</span>' +
+        (item.emailStatus === "pending" || item.emailStatus === "failed" || item.emailStatus === "sending" ? '<span class="status-pill pending-pill">Correo pendiente</span>' : (item.emailStatus === "sent" ? '<span class="status-pill">Correo enviado</span>' : "")) +
         '<div class="history-card-actions">' +
+        (item.emailStatus === "pending" || item.emailStatus === "failed" || item.emailStatus === "sending" ? '<button type="button" class="history-email-retry-btn" data-email-retry-id="' + escapeHtml(String(item.id)) + '">✉️ Reintentar correo</button>' : "") +
         '<button type="button" class="history-resend-btn" data-resend-id="' + escapeHtml(String(item.id)) + '">↗️ Reenviar</button>' +
         '<button type="button" class="history-edit-btn" data-edit-id="' + escapeHtml(String(item.id)) + '">✏️ Editar</button>' +
         '</div></div></li>';
@@ -2969,6 +3007,15 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     renderHistory();
   });
   document.getElementById("historyList").addEventListener("click", function(e){
+    var retryEmailBtn = e.target.closest(".history-email-retry-btn");
+    if (retryEmailBtn) {
+      e.preventDefault(); e.stopPropagation();
+      var retryId = retryEmailBtn.getAttribute("data-email-retry-id");
+      var retryEntry = (data.history || []).find(function(x) { return String(x.id) === String(retryId); });
+      if (!retryEntry) { showAlert("No se encontró el pedido para reintentar el correo."); return; }
+      sendOrderEmailCopy(retryEntry);
+      return;
+    }
     var editBtn = e.target.closest(".history-edit-btn");
     if (!editBtn) return;
     e.preventDefault();
@@ -3472,47 +3519,58 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     var order = data.orders[supplier.id] || {};
     var now = new Date();
     var totalUnits = items.reduce(function(sum,p){ return sum + (Number(order[p.id]) || 0); }, 0);
-    var entry = { id: uid(), supplierId: supplier.id, supplierName: supplier.name, phone: normalizeColombianPhone(supplier.phone || ""), createdAt: now.toISOString(), dateLabel: now.toLocaleString("es-CO", { dateStyle:"medium", timeStyle:"short" }), status:"sent", totalUnits:totalUnits, items:items.map(function(p){ return { name:p.name, qty:Number(order[p.id])||0 }; }) };
+    var entry = {
+      id: uid(), supplierId: supplier.id, supplierName: supplier.name,
+      phone: normalizeColombianPhone(supplier.phone || ""), createdAt: now.toISOString(),
+      dateLabel: now.toLocaleString("es-CO", { dateStyle:"medium", timeStyle:"short" }),
+      status:"sent", emailStatus:"pending", emailError:"", totalUnits:totalUnits,
+      items:items.map(function(p){ return { name:p.name, qty:Number(order[p.id])||0, unit:normalizeUnit(p.unit || "") }; })
+    };
+    // Primero se guarda el pedido completo localmente; luego se vacían las cantidades.
     data.history.unshift(entry);
     if (data.history.length > 100) data.history = data.history.slice(0,100);
-    // Una vez enviado, deja de ser un pedido pendiente.
+    data.pendingSyncHistoryIds = Array.from(new Set((data.pendingSyncHistoryIds || []).concat(String(entry.id))));
     data.orders[supplier.id] = {};
     if (data.pendingOrders) delete data.pendingOrders["pending-" + supplier.id];
     rebuildPendingOrders();
-    saveData();
+    saveLocalOrders();
+    return entry;
   }
 
-  // Envía una copia del pedido mediante una Edge Function autenticada.
-  // El destinatario NO se acepta desde el navegador: lo resuelve Supabase
-  // usando el usuario de la sesión y su email_destinatario.
-  async function sendOrderEmailCopy(supplier, items) {
-    if (!supabaseClient) return;
-    var orderSnapshot = data.orders[supplier.id] || {};
-    var products = items.map(function(p) {
-      return {
-        nombre: String(p.name || ""),
-        cantidad: Number(orderSnapshot[p.id]) || 0,
-        unidad: normalizeUnit(p.unit || "")
-      };
-    }).filter(function(p) { return p.nombre && p.cantidad > 0; });
-    if (!products.length) return;
-
+  // El correo se envía desde la copia inmutable del historial. Un fallo de sesión o
+  // conexión no borra el pedido y permite reintentar la copia desde Gestión de Pedidos.
+  async function sendOrderEmailCopy(entry) {
+    if (!entry) return;
+    await cloudSave();
+    entry.emailStatus = "sending";
+    entry.emailError = "";
+    saveLocalOrders();
     try {
-      // Renovar/verificar la sesión justo antes de llamar a la función de correo.
+      if (!supabaseClient) throw new Error("No hay conexión con el servicio de correo.");
       var activeSession = await getCurrentSession();
+      var products = (entry.items || []).map(function(p) {
+        return { nombre: String(p.name || ""), cantidad: Number(p.qty) || 0, unidad: normalizeUnit(p.unit || "") };
+      }).filter(function(p) { return p.nombre && p.cantidad > 0; });
+      if (!products.length) throw new Error("El pedido no contiene productos para enviar.");
       var result = await supabaseClient.functions.invoke("send-order-copy", {
-        body: { proveedor: String(supplier.name || "Proveedor"), productos: products },
+        body: { proveedor: String(entry.supplierName || "Proveedor"), productos: products },
         headers: { Authorization: "Bearer " + activeSession.access_token }
       });
       if (result.error) throw result.error;
-      if (!result.data || result.data.success !== true) {
-        throw new Error((result.data && result.data.error) || "No se confirmó el envío del correo");
-      }
-      console.log("Copia del pedido enviada por correo.");
+      if (!result.data || result.data.success !== true) throw new Error((result.data && result.data.error) || "No se confirmó el envío del correo");
+      entry.emailStatus = "sent";
+      entry.emailError = "";
+      entry.emailSentAt = new Date().toISOString();
+      saveData();
+      showAlert("La copia del pedido también se envió correctamente al correo configurado.", "Correo enviado");
     } catch (err) {
       console.error("No se pudo enviar la copia del pedido:", err);
-      showAlert("El pedido se abrió en WhatsApp, pero no se pudo enviar la copia por correo. Revisa la configuración del correo o contacta al administrador.", "Copia por correo pendiente");
+      entry.emailStatus = "failed";
+      entry.emailError = String(err && err.message || "Error al enviar el correo");
+      saveData();
+      showAlert("El pedido de WhatsApp quedó guardado en Gestión de Pedidos. La copia por correo está pendiente y puedes reintentarla desde el mismo pedido.", "Copia por correo pendiente");
     }
+    if (state.view === "history") renderHistory();
   }
 
   // El control para compartir siempre pasa por la ventana de confirmación, que crea
@@ -3546,7 +3604,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
         primaryText: "Confirmar y enviar",
         primaryHref: url,
         secondaryText: "Revisar pedido",
-        onPrimary: function(){ sendOrderEmailCopy(supplier, withQty); recordSentOrder(supplier, withQty); }
+        onPrimary: function(){ var sentEntry = recordSentOrder(supplier, withQty); sendOrderEmailCopy(sentEntry); }
       });
     } else {
       showModal({
@@ -3554,7 +3612,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
         message: "Se va a compartir el pedido de " + supplier.name + " con " + withQty.length + " producto" + (withQty.length === 1 ? "" : "s") + " por WhatsApp.",
         primaryText: "Enviar por WhatsApp",
         primaryHref: url,
-        onPrimary: function(){ sendOrderEmailCopy(supplier, withQty); recordSentOrder(supplier, withQty); }
+        onPrimary: function(){ var sentEntry = recordSentOrder(supplier, withQty); sendOrderEmailCopy(sentEntry); }
       });
     }
   });
