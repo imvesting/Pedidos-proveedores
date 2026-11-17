@@ -2076,6 +2076,8 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
       render();
       startRealtime();
       startCloudRefreshFallback();
+      // También recupera pedidos seguros si la pestaña se recargó mientras WhatsApp estaba abierto.
+      resumeSafePendingEmails();
     } catch (e) {
       console.error("No se pudo conectar con Supabase:", e);
       cloudReady = false;
@@ -3730,6 +3732,26 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     }
     if (state.view === "history") renderHistory();
   }
+
+  // Al volver de WhatsApp o recuperar conexión, reanudar una sola vez los
+  // correos seguros que quedaron pendientes. Los estados "processing" no se tocan.
+  function resumeSafePendingEmails() {
+    if (!currentAuthUserId || !cloudReady || !supabaseClient || document.visibilityState === "hidden") return;
+    (data.history || []).forEach(function(entry) {
+      if (!entry || entry.emailRetrySafe !== true || entry.emailAutoResumeTried === true) return;
+      if (entry.emailStatus !== "pending" && entry.emailStatus !== "failed") return;
+      entry.emailAutoResumeTried = true;
+      saveLocalOrders();
+      sendOrderEmailCopy(entry);
+    });
+  }
+
+  document.addEventListener("visibilitychange", function() {
+    if (document.visibilityState === "visible") resumeSafePendingEmails();
+  });
+  window.addEventListener("focus", resumeSafePendingEmails);
+  window.addEventListener("pageshow", resumeSafePendingEmails);
+  window.addEventListener("online", resumeSafePendingEmails);
 
   // El control para compartir siempre pasa por la ventana de confirmación, que crea
   // un nuevo <a href="..."> en el momento de mostrarla. Deliberadamente nunca
