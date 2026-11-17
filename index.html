@@ -3051,7 +3051,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
         selectBox + '<div class="history-icon">🧾</div><div class="history-info"><div class="history-title">' + escapeHtml(item.supplierName) + '</div>' +
         '<div class="history-meta">' + escapeHtml(item.dateLabel || '') + '</div></div>' +
         '<span class="status-pill">Enviado</span>' +
-        (item.emailStatus === "pending" || item.emailStatus === "failed" || item.emailStatus === "sending" ? '<span class="status-pill pending-pill">Correo pendiente</span>' : (item.emailStatus === "sent" ? '<span class="status-pill">Correo enviado</span>' : "")) +
+        (item.emailStatus === "processing" ? '<span class="status-pill pending-pill">Correo por verificar</span>' : (item.emailStatus === "pending" || item.emailStatus === "failed" || item.emailStatus === "sending" ? '<span class="status-pill pending-pill">Correo pendiente</span>' : (item.emailStatus === "sent" ? '<span class="status-pill">Correo enviado</span>' : ""))) +
         '<div class="history-card-actions">' +
         (item.emailStatus === "pending" || item.emailStatus === "failed" || item.emailStatus === "sending" ? '<button type="button" class="history-email-retry-btn" data-email-retry-id="' + escapeHtml(String(item.id)) + '">✉️ Reintentar correo</button>' : "") +
         '<button type="button" class="history-resend-btn" data-resend-id="' + escapeHtml(String(item.id)) + '">↗️ Reenviar</button>' +
@@ -3636,7 +3636,7 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
       id: uid(), supplierId: supplier.id, supplierName: supplier.name,
       phone: normalizeColombianPhone(supplier.phone || ""), createdAt: now.toISOString(),
       dateLabel: now.toLocaleString("es-CO", { dateStyle:"medium", timeStyle:"short" }),
-      status:"sent", emailStatus:"pending", emailError:"", totalUnits:totalUnits,
+      status:"sent", emailStatus:"pending", emailError:"", emailRetrySafe:true, emailRetryAttempts:0, totalUnits:totalUnits,
       items:items.map(function(p){ return { name:p.name, qty:Number(order[p.id])||0, unit:normalizeUnit(p.unit || "") }; })
     };
     // Primero se guarda el pedido completo localmente; luego se vacían las cantidades.
@@ -3650,14 +3650,18 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
     return entry;
   }
 
-  // El correo se envía desde la copia inmutable del historial. Un fallo de sesión o
-  // conexión no borra el pedido y permite reintentar la copia desde Gestión de Pedidos.
+  // El identificador del pedido permite a Google Apps Script reconocer reintentos
+  // sin enviar dos veces el mismo correo.
   async function sendOrderEmailCopy(entry) {
     if (!entry) return;
-    await cloudSave();
+    if (entry.emailStatus === "sent" || entry.emailStatus === "processing") return;
     entry.emailStatus = "sending";
     entry.emailError = "";
     saveLocalOrders();
+    cloudSave();
+
+    var processing = false;
+    var lastError = "";
     try {
       if (!supabaseClient) throw new Error("No hay conexión con el servicio de correo.");
       var activeSession = await getCurrentSession();
@@ -3665,23 +3669,64 @@ document.getElementById("inventoryHistoryList").addEventListener("click",e=>{var
         return { nombre: String(p.name || ""), cantidad: Number(p.qty) || 0, unidad: normalizeUnit(p.unit || "") };
       }).filter(function(p) { return p.nombre && p.cantidad > 0; });
       if (!products.length) throw new Error("El pedido no contiene productos para enviar.");
-      var result = await supabaseClient.functions.invoke("send-order-copy", {
-        body: { proveedor: String(entry.supplierName || "Proveedor"), productos: products },
-        headers: { Authorization: "Bearer " + activeSession.access_token }
-      });
-      if (result.error) throw result.error;
-      if (!result.data || result.data.success !== true) throw new Error((result.data && result.data.error) || "No se confirmó el envío del correo");
-      entry.emailStatus = "sent";
-      entry.emailError = "";
-      entry.emailSentAt = new Date().toISOString();
-      saveData();
-      showAlert("La copia del pedido también se envió correctamente al correo configurado.", "Correo enviado");
+
+      // Máximo tres intentos. El mismo order_id hace que el servidor devuelva
+      // "ya enviado" si el primer intento sí llegó a Gmail pero se perdió la respuesta.
+      for (var attempt = 0; attempt < 3; attempt++) {
+        entry.emailRetryAttempts = attempt + 1;
+        saveLocalOrders();
+        try {
+          var result = await supabaseClient.functions.invoke("send-order-copy", {
+            body: {
+              order_id: String(entry.id),
+              proveedor: String(entry.supplierName || "Proveedor"),
+              productos: products
+            },
+            headers: { Authorization: "Bearer " + activeSession.access_token }
+          });
+          if (result.data && result.data.processing === true) {
+            processing = true;
+            lastError = String(result.data.error || "El envío está en proceso y no se repetirá automáticamente.");
+            break;
+          }
+          if (result.error) throw result.error;
+          if (!result.data || result.data.success !== true) throw new Error((result.data && result.data.error) || "No se confirmó el envío del correo");
+          entry.emailStatus = "sent";
+          entry.emailError = "";
+          entry.emailSentAt = entry.emailSentAt || new Date().toISOString();
+          entry.emailRetrySafe = false;
+          saveLocalOrders();
+          await cloudSave();
+          showAlert(result.data.already_sent ? "El correo ya estaba enviado. Se actualizó el estado del pedido." : "La copia del pedido también se envió correctamente al correo configurado.", "Correo enviado");
+          if (state.view === "history") renderHistory();
+          return;
+        } catch (err) {
+          lastError = String(err && err.message || "Error al enviar el correo");
+          if (attempt < 2) await new Promise(function(resolve) { setTimeout(resolve, attempt === 0 ? 5000 : 15000); });
+        }
+      }
+
+      if (processing) {
+        entry.emailStatus = "processing";
+        entry.emailError = lastError;
+        entry.emailRetrySafe = false;
+        saveLocalOrders();
+        await cloudSave();
+        showAlert("Google Apps Script dejó este pedido en verificación para evitar un correo duplicado. No lo reintentes todavía; si el correo no aparece, revisaremos ese pedido.", "Envío por verificar");
+      } else {
+        entry.emailStatus = "failed";
+        entry.emailError = lastError || "No se pudo confirmar el envío";
+        saveLocalOrders();
+        await cloudSave();
+        showAlert("No se pudo confirmar el correo después de varios intentos. El pedido de WhatsApp quedó guardado; puedes reintentar la copia desde Gestión de Pedidos.", "Copia por correo pendiente");
+      }
     } catch (err) {
       console.error("No se pudo enviar la copia del pedido:", err);
       entry.emailStatus = "failed";
       entry.emailError = String(err && err.message || "Error al enviar el correo");
-      saveData();
-      showAlert("El pedido de WhatsApp quedó guardado en Gestión de Pedidos. La copia por correo está pendiente y puedes reintentarla desde el mismo pedido.", "Copia por correo pendiente");
+      saveLocalOrders();
+      await cloudSave();
+      showAlert("El pedido de WhatsApp quedó guardado. La copia por correo está pendiente y puedes reintentarla desde Gestión de Pedidos.", "Copia por correo pendiente");
     }
     if (state.view === "history") renderHistory();
   }
