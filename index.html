@@ -2074,6 +2074,7 @@ window.addEventListener("unhandledrejection", function(e) { console.error("Prome
         if (Array.isArray(remote.inventories)) data.inventories = remote.inventories;
         if (Array.isArray(remote.inventoryTemplate)) data.inventoryTemplate = remote.inventoryTemplate;
         if (typeof remote.emailInventario === "string") data.emailInventario = remote.emailInventario;
+        if (typeof remote.autoOrdersFromInventory === "boolean") data.autoOrdersFromInventory = remote.autoOrdersFromInventory;
         if (Array.isArray(remote.deletedOrderIds)) data.deletedOrderIds = remote.deletedOrderIds.map(String);
         rebuildPendingOrders();
         saveLocalOrders();
